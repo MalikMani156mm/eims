@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoryID = intval($_POST['categoryID'] ?? 0);
     
     if (empty($sizeName)) {
-        echo json_encode(['success' => false, 'message' => 'Size name is required']);
+        echo json_encode(['success' => false, 'message' => 'Tonnage is required']);
         exit;
     }
     
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("si", $sizeName, $categoryID);
         
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Size added successfully']);
+            echo json_encode(['success' => true, 'message' => 'Tonnage added successfully']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to add size']);
         }

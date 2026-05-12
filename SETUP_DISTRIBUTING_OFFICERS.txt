@@ -1,0 +1,128 @@
+===============================================================================
+DISTRIBUTING OFFICERS - DATABASE SETUP INSTRUCTIONS
+===============================================================================
+
+PROBLEM: Form cannot submit because the table doesn't exist in the database.
+
+SOLUTION: Run the SQL commands below to create the table.
+
+===============================================================================
+OPTION 1: Using phpMyAdmin (RECOMMENDED - Easy)
+===============================================================================
+
+1. Open phpMyAdmin: http://localhost/phpmyadmin
+2. Select 'eims_db' database from left sidebar
+3. Click on "SQL" tab at the top
+4. Copy and paste the SQL below:
+
+-- Create distributing_officers table
+CREATE TABLE IF NOT EXISTS `distributing_officers` (
+  `officerID` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `cnic` varchar(20) NOT NULL UNIQUE,
+  `contactNumber` varchar(20) NOT NULL,
+  `address` text NOT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '0=Active, 1=Inactive',
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`officerID`),
+  KEY `idx_status` (`status`),
+  KEY `idx_cnic` (`cnic`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+5. Click "Go" button
+6. You should see "Query OK" message
+
+===============================================================================
+OPTION 2: Using MySQL Command Line
+===============================================================================
+
+1. Open Command Prompt
+2. Navigate to MySQL bin folder:
+   cd C:\xampp\mysql\bin
+
+3. Login to MySQL:
+   mysql -u root -p
+   (Press Enter if no password, or type your password)
+
+4. Select database:
+   USE eims_db;
+
+5. Run the SQL file:
+   SOURCE C:/xampp/htdocs/eims/distributing_officers_table.sql;
+
+6. Verify table was created:
+   SHOW TABLES;
+   (You should see 'distributing_officers' in the list)
+
+7. Exit:
+   exit;
+
+===============================================================================
+OPTION 3: Quick One-Line Command (Windows Command Prompt)
+===============================================================================
+
+C:\xampp\mysql\bin\mysql -u root eims_db < C:\xampp\htdocs\eims\distributing_officers_table.sql
+
+===============================================================================
+VERIFICATION - Check if table was created successfully
+===============================================================================
+
+Run this query in phpMyAdmin SQL tab:
+
+DESCRIBE distributing_officers;
+
+You should see 8 columns:
+- officerID (int, PRIMARY KEY, AUTO_INCREMENT)
+- name (varchar 255)
+- cnic (varchar 20, UNIQUE)
+- contactNumber (varchar 20)
+- address (text)
+- status (tinyint 1, default 0)
+- createdAt (timestamp)
+- updatedAt (timestamp)
+
+===============================================================================
+AFTER CREATING TABLE - Test the Form
+===============================================================================
+
+1. Refresh your browser page: Ctrl + F5
+2. Go to "Add Distributing Officer" menu
+3. Fill in the form:
+   - Name: Test Officer
+   - CNIC: 12345-1234567-1
+   - Contact: 0300-1234567
+   - Address: Test Address
+   - Status: Active
+
+4. Click "Add Officer"
+5. You should see success message!
+
+===============================================================================
+TROUBLESHOOTING
+===============================================================================
+
+If you still get errors:
+
+1. Check MySQL is running:
+   - Open XAMPP Control Panel
+   - MySQL should have green "Running" status
+   - If not, click "Start"
+
+2. Check database connection:
+   - Open: c:\xampp\htdocs\eims\db.php
+   - Verify database name is 'eims_db'
+
+3. Check for errors in browser console:
+   - Press F12 in browser
+   - Go to "Console" tab
+   - Look for red error messages
+   - Share the error with me
+
+4. Check PHP errors:
+   - Open: c:\xampp\htdocs\eims\backend\saveDistributingOfficer.php
+   - Add at the top (after <?php):
+     error_reporting(E_ALL);
+     ini_set('display_errors', 1);
+
+===============================================================================

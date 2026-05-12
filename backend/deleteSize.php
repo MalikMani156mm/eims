@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sizeID = intval($_POST['id'] ?? 0);
     
     if ($sizeID <= 0) {
-        echo json_encode(['success' => false, 'message' => 'Invalid size ID']);
+        echo json_encode(['success' => false, 'message' => 'Invalid tonnage ID']);
         exit;
     }
     
@@ -16,9 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("i", $sizeID);
         
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Size deleted successfully']);
+            echo json_encode(['success' => true, 'message' => 'Tonnage deleted successfully']);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to delete size']);
+            echo json_encode(['success' => false, 'message' => 'Failed to delete tonnage']);
         }
         
         $stmt->close();

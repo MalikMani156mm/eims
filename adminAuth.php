@@ -28,6 +28,7 @@ try {
     $adminRole = $admin['role'];
     $adminName = $admin['username'];
     $fullName = $admin['full_name'];
+    $regionID = $admin['regionID'];
     $dashboard = $admin['dashboard_access'];
 } catch (Exception $e) {
     // Invalid or expired token

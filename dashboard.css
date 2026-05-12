@@ -36,6 +36,47 @@ body {
     gap: 15px;
 }
 
+/* Burger Menu Button */
+.burger-menu {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 30px;
+    height: 25px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+.burger-menu span {
+    width: 30px;
+    height: 3px;
+    background-color: white;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    transform-origin: center;
+}
+
+.burger-menu:hover span {
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.burger-menu.active span:nth-child(1) {
+    transform: rotate(45deg) translate(7px, 7px);
+}
+
+.burger-menu.active span:nth-child(2) {
+    opacity: 0;
+    transform: translateX(-10px);
+}
+
+.burger-menu.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -7px);
+}
+
 .nav-logo {
     height: 50px;
     width: auto;
@@ -112,6 +153,13 @@ body {
     background-color: white;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
     padding: 20px 0;
+    transition: transform 0.3s ease, margin-left 0.3s ease;
+    position: relative;
+}
+
+.sidebar.sidebar-hidden {
+    margin-left: -260px;
+    transform: translateX(-100%);
 }
 
 .menu-section h3 {
@@ -150,6 +198,30 @@ body {
 
 .menu-item .icon {
     font-size: 20px;
+}
+
+.menu-item .badge-count {
+    margin-left: auto;
+    background: #f44336;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 12px;
+    min-width: 20px;
+    text-align: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
 }
 
 /* Main Content Area */
@@ -216,7 +288,7 @@ body {
     border-radius: 20px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
     /* max-width: 500px; */
-    width: 90%;
+    width: 99%;
 }
 
 .form-container h2 {
@@ -294,27 +366,36 @@ body {
     .sidebar {
         width: 100%;
         padding: 10px 0;
+        position: fixed;
+        top: 80px;
+        left: 0;
+        z-index: 999;
+        height: calc(100vh - 80px);
+        overflow-y: auto;
+    }
+
+    .sidebar.sidebar-hidden {
+        margin-left: 0;
+        transform: translateX(-100%);
     }
 
     .menu-section {
-        display: flex;
-        overflow-x: auto;
-        padding-bottom: 10px;
+        display: block;
     }
 
     .menu-section h3 {
-        display: none;
+        display: block;
     }
 
     .menu-item {
-        min-width: 150px;
-        border-left: none;
-        border-bottom: 3px solid transparent;
+        min-width: auto;
+        border-left: 3px solid transparent;
+        border-bottom: none;
     }
 
     .menu-item.active {
-        border-left: none;
-        border-bottom-color: #667eea;
+        border-left-color: #667eea;
+        border-bottom: none;
     }
 
     .main-content {

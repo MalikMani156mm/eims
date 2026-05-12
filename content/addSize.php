@@ -24,7 +24,7 @@ if ($result) {
 <div class="container">
     <!-- Add Size Form -->
     <div class="form-container">
-        <h2>Add New Size</h2>
+        <h2>Add New Tonnage</h2>
         <form id="addSizeForm">
             <div class="form-group">
                 <label for="categoryID" class="form-label">Category</label>
@@ -38,25 +38,25 @@ if ($result) {
                 </select>
             </div>
             <div class="form-group">
-                <label for="sizeName" class="form-label">Size Name</label>
-                <input type="text" id="sizeName" name="sizeName" class="form-control" placeholder="Enter size name (e.g., 1 ton, 40 kg)" required>
+                <label for="sizeName" class="form-label">Tonnage</label>
+                <input type="text" id="sizeName" name="sizeName" class="form-control" placeholder="Enter tonnage (e.g., 1 ton)" required>
             </div>
             <div style="text-align: center;">
-                <button type="submit" class="btn btn-primary">Add Size</button>
+                <button type="submit" class="btn btn-primary">Add Tonnage</button>
                 <button type="reset" class="btn btn-secondary">Clear</button>
             </div>
         </form>
     </div>
 
-    <!-- Display Sizes -->
+    <!-- Display Tonnages -->
     <div class="packages-table">
-        <h3>Existing Sizes</h3>
+        <h3>Existing Tonnages</h3>
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
                         <th>Serial No.</th>
-                        <th>Size Name</th>
+                        <th>Tons</th>
                         <th>Category</th>
                         <th>Created At</th>
                         <th class="text-center">Actions</th>

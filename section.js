@@ -4,12 +4,29 @@ function loadContent(section) {
     currentSection = section;
     const url = `content/${section}.php`;
 
-    // Regular content load (no filters)
+    // Regular content load (no filters) - load HTML and execute inline scripts
     $.ajax({
         url: url,
         method: 'GET',
+        dataType: 'html',
         success: function (response) {
-            $("#content-area").html(response);
+            // Parse HTML and keep scripts
+            const parsed = $.parseHTML(response, document, true);
+            const $target = $("#content-area");
+            $target.empty();
+
+            parsed.forEach(function(node) {
+                if (node && node.nodeName && node.nodeName.toLowerCase() === 'script') {
+                    // Execute inline script content
+                    const scriptText = node.text || node.textContent || node.innerHTML || '';
+                    if (scriptText) {
+                        $.globalEval(scriptText);
+                    }
+                } else if (node) {
+                    $target.append(node);
+                }
+            });
+
             bindSectionLogic(section);
         },
         error: function () {
@@ -23,14 +40,29 @@ function loadContentWithFilter(section, status) {
     currentSection = section;
     const url = `content/${section}.php`;
 
-    // Load content with filter parameter
+    // Load content with filter parameter (execute inline scripts)
     $.ajax({
         url: url,
         method: 'GET',
+        dataType: 'html',
         success: function (response) {
-            $("#content-area").html(response);
+            const parsed = $.parseHTML(response, document, true);
+            const $target = $("#content-area");
+            $target.empty();
+
+            parsed.forEach(function(node) {
+                if (node && node.nodeName && node.nodeName.toLowerCase() === 'script') {
+                    const scriptText = node.text || node.textContent || node.innerHTML || '';
+                    if (scriptText) {
+                        $.globalEval(scriptText);
+                    }
+                } else if (node) {
+                    $target.append(node);
+                }
+            });
+
             bindSectionLogic(section);
-            
+
             // Apply the filter after content is loaded
             setTimeout(function() {
                 if (status) {
