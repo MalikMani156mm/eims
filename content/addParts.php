@@ -218,7 +218,7 @@ require '../db.php';
             if (!res.isConfirmed) return;
 
             $.ajax({
-                url: '../eims/backend/saveParts.php',
+                url: '/backend/saveParts.php',
                 type: 'POST',
                 dataType: 'json',
                 data: JSON.stringify({
@@ -251,7 +251,7 @@ require '../db.php';
 
     function savePartsWithSerials(serialNumbers) {
         $.ajax({
-            url: '../eims/backend/saveParts.php',
+            url: '/backend/saveParts.php',
             type: 'POST',
             dataType: 'json',
             data: JSON.stringify({

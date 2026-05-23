@@ -271,6 +271,9 @@ require '../db.php';
                 <!-- Issued Parts placeholder (will be filled dynamically) -->
                 <div id="issuedPartsPlaceholder"></div>
 
+                <!-- Issued Gases placeholder (will be filled dynamically) -->
+                <div id="issuedGasesPlaceholder"></div>
+
                 <!-- Action Buttons -->
                 <div style="display: flex; gap: 12px; justify-content: center; margin-top: 30px;">
                     <button onclick="$('#searchSerial').val('').focus(); $('#resultsContainer').hide(); $('#initialState').show();" 
@@ -352,6 +355,65 @@ require '../db.php';
 
             // Render inside the placeholder above the action buttons
             $('#issuedPartsPlaceholder').html(partsHtml);
+        }, 'json').fail(function() {
+            // ignore failures silently
+        });
+
+        // Fetch gases issued to this product serial
+        $.get('backend/getGasByIssuedSerial.php', { serialNumber: data.serialNumber }, function(gasResp) {
+            if (!gasResp || !gasResp.success) return;
+            const gases = gasResp.gases || [];
+            if (gases.length === 0) return;
+
+            // Group by gasName
+            const gasGrouped = {};
+            gases.forEach(g => {
+                const name = g.gas_name || '(unknown)';
+                if (!gasGrouped[name]) gasGrouped[name] = [];
+                gasGrouped[name].push(g);
+            });
+
+            let gasHtml = '<div style="background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%); padding: 18px; border-radius: 12px; margin-top: 20px; color: white;">';
+            gasHtml += '<div style="display:flex; align-items:center; justify-content:space-between;">';
+            gasHtml += '<h4 style="margin:0; font-weight:600;">⛽ Issued Gases</h4>';
+            gasHtml += '</div>';
+            gasHtml += '<div style="background: white; padding: 14px; border-radius: 8px; color: #333; margin-top:12px;">';
+
+            Object.keys(gasGrouped).forEach(gasName => {
+                const items = gasGrouped[gasName];
+                gasHtml += `<div style="margin-bottom:20px;"><div style="font-weight:700; font-size:16px; color:#ff9800;">${gasName}</div>`;
+                gasHtml += '<div style="margin-top:10px;">';
+
+                items.forEach((g, idx) => {
+                    const totalPrice = parseFloat(g.total_price || 0).toFixed(2);
+                    const unitPrice = parseFloat(g.unit_price || 0).toFixed(2);
+                    const quantity = parseFloat(g.quantity_used || 0).toFixed(2);
+                    const issuedAt = g.created_at ? new Date(g.created_at).toLocaleString() : 'N/A';
+                    const regionName = g.regionName || 'N/A';
+
+                    gasHtml += '<div style="background:#f9f9f9; padding:12px; border-radius:6px; margin-bottom:10px; border-left:4px solid #ff9800;">';
+                    gasHtml += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">`;
+                    gasHtml += `<div><strong style="color:#666;">Batch:</strong> ${g.batchName || 'N/A'}</div>`;
+                    gasHtml += `<div style="background:#4caf50; color:#fff; padding:4px 10px; border-radius:4px; font-weight:700; font-size:12px;">Issued</div>`;
+                    gasHtml += '</div>';
+                    gasHtml += `<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; font-size:13px;">`;
+                    gasHtml += `<div><strong>Quantity:</strong> ${quantity} Units</div>`;
+                    gasHtml += `<div><strong>Region:</strong> ${regionName}</div>`;
+                    gasHtml += `<div><strong>Unit Price:</strong> RS ${unitPrice}</div>`;
+                    gasHtml += `<div><strong>Total Price:</strong> RS ${totalPrice}</div>`;
+                    gasHtml += `<div><strong>Issued on:</strong> ${issuedAt}</div>`;
+                    gasHtml += '</div>';
+                    gasHtml += '</div>';
+                });
+
+                gasHtml += '</div>';
+                gasHtml += '</div>';
+            });
+
+            gasHtml += '</div></div>';
+
+            // Render inside the placeholder
+            $('#issuedGasesPlaceholder').html(gasHtml);
         }, 'json').fail(function() {
             // ignore failures silently
         });

@@ -84,6 +84,41 @@ if ($partsResult) {
     }
 }
 
+// Fetch all gases with their batches
+$gases = [];
+$gasesResult = $conn->query("
+    SELECT DISTINCT gm.gas_id, gm.gas_name 
+    FROM gas_master gm 
+    ORDER BY gm.gas_name ASC
+");
+if ($gasesResult) {
+    while ($row = $gasesResult->fetch_assoc()) {
+        $gasId = $row['gas_id'];
+        $gasName = $row['gas_name'];
+        
+        // Get all batches for this gas
+        $batches = [];
+        $batchesResult = $conn->query("
+            SELECT batch_id, batchName, available, unit_price 
+            FROM gas_batch_details 
+            WHERE gas_id = $gasId AND available > 0
+            ORDER BY batchName ASC
+        ");
+        if ($batchesResult) {
+            while ($batch = $batchesResult->fetch_assoc()) {
+                $batches[] = $batch;
+            }
+        }
+        
+        if (!empty($batches)) {
+            $gases[$gasName] = [
+                'gas_id' => $gasId,
+                'batches' => $batches
+            ];
+        }
+    }
+}
+
 // Fetch all products with related information
 $products = [];
 $result = $conn->query("
@@ -110,6 +145,17 @@ if ($result) {
 ?>
 
 <div class="container">
+    <!-- Success Alert (appears at top) -->
+    <div id="successAlert" style="display: none; position: sticky; top: 20px; z-index: 999; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; padding: 16px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3); border-left: 5px solid #2e7d32;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">✓</span>
+            <div>
+                <strong style="display: block; font-size: 16px; margin-bottom: 4px;">Success!</strong>
+                <span id="successAlertText" style="font-size: 14px;">Operation completed successfully</span>
+            </div>
+        </div>
+    </div>
+    
     <!-- Add Product Form -->
     <div class="form-container">
         <h2>Add New Product</h2>
@@ -225,7 +271,7 @@ if ($result) {
                                 <select class="form-control parts-serial-select" data-part-name="<?php echo htmlspecialchars($partName); ?>" multiple="multiple" style="width: 100%;">
                                     <?php foreach ($serialParts as $part): ?>
                                         <option value="<?php echo $part['partID']; ?>" data-serial="<?php echo htmlspecialchars($part['serialNumber']); ?>" data-batch="<?php echo htmlspecialchars($part['batchName']); ?>">
-                                            <?php echo htmlspecialchars($part['serialNumber']) . ' (Batch: ' . htmlspecialchars($part['batchName']) . ')'; ?>
+                                            <?php echo 'Serial No: ' . htmlspecialchars($part['serialNumber']) . ' (Batch: ' . htmlspecialchars($part['batchName']) . ')'; ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -249,6 +295,50 @@ if ($result) {
                             </div>
                         <?php endforeach; ?>
                     </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Gases Selection Section -->
+            <div style="background: #fff8f0; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #ff9800;">
+                <h4 style="margin-top: 0; color: #333; font-size: 18px;">⛽ Select Gases to Issue</h4>
+                
+                <?php if (!empty($gases)): ?>
+                    <div style="margin-bottom: 20px;">
+                        <?php foreach ($gases as $gasName => $gasData): ?>
+                            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #ff9800;">
+                                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                                    <input type="checkbox" class="gas-checkbox" data-gas-id="<?php echo $gasData['gas_id']; ?>" data-gas-name="<?php echo htmlspecialchars($gasName); ?>" id="checkbox_gas_<?php echo $gasData['gas_id']; ?>" style="width: 20px; height: 20px; cursor: pointer;">
+                                    <label for="checkbox_gas_<?php echo $gasData['gas_id']; ?>" style="margin: 0; cursor: pointer; font-weight: 600; flex: 1; font-size: 16px; color: #333;"><?php echo htmlspecialchars($gasName); ?></label>
+                                </div>
+
+                                <!-- Batches for this gas (hidden initially) -->
+                                <div id="batches_gas_<?php echo $gasData['gas_id']; ?>" style="display: none; margin-left: 40px;">
+                                    <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                        <h6 style="margin-top: 0; margin-bottom: 12px; color: #ff9800; font-size: 14px;">📦 Available Batches:</h6>
+                                        <?php foreach ($gasData['batches'] as $batch): ?>
+                                            <div style="margin-bottom: 12px; padding: 12px; background: white; border-radius: 6px; border: 1px solid #f0f0f0;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                                    <label style="margin: 0; cursor: pointer; font-weight: 500; color: #333;">
+                                                        <input type="checkbox" class="gas-batch-checkbox" data-gas-id="<?php echo $gasData['gas_id']; ?>" data-batch-id="<?php echo $batch['batch_id']; ?>" data-batch-name="<?php echo htmlspecialchars($batch['batchName']); ?>" data-available="<?php echo $batch['available']; ?>" data-unit-price="<?php echo $batch['unit_price']; ?>" style="width: 16px; height: 16px; cursor: pointer; margin-right: 8px;">
+                                                        <span style="font-weight: 600;"><?php echo htmlspecialchars($batch['batchName']); ?></span>
+                                                    </label>
+                                                    <span style="background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">Available: <?php echo $batch['available']; ?> Units</span>
+                                                </div>
+                                                <div style="color: #666; font-size: 13px;">Unit Price: <strong>RS <?php echo number_format($batch['unit_price'], 2); ?></strong></div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+
+                                    <!-- Quantity Inputs Container for multiple batches -->
+                                    <div id="batch_quantities_gas_<?php echo $gasData['gas_id']; ?>" style="display: none; margin-bottom: 15px;">
+                                        <!-- Batch quantity inputs will be added here dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <p style="color: #666; text-align: center;">No gases available</p>
                 <?php endif; ?>
             </div>
 
@@ -442,6 +532,114 @@ if ($result) {
             }
         });
 
+        // ===== GAS SECTION HANDLERS =====
+        // Handle gas checkbox click
+        $(document).on('change', '.gas-checkbox', function() {
+            const gasId = $(this).data('gas-id');
+            const batchesDiv = $('#batches_gas_' + gasId);
+            
+            if ($(this).is(':checked')) {
+                batchesDiv.slideDown(300);
+            } else {
+                batchesDiv.slideUp(300);
+                // Uncheck all batches and hide quantity inputs for this gas
+                $('input[data-gas-id="' + gasId + '"].gas-batch-checkbox').prop('checked', false);
+                $('#batch_quantities_gas_' + gasId).hide().empty();
+            }
+        });
+
+        // Handle gas batch checkbox selection (allows multiple batches per gas)
+        $(document).on('change', '.gas-batch-checkbox', function() {
+            const gasId = $(this).data('gas-id');
+            const batchId = $(this).data('batch-id');
+            const batchName = $(this).data('batch-name');
+            const available = parseFloat($(this).data('available'));
+            const unitPrice = parseFloat($(this).data('unit-price'));
+            const container = $('#batch_quantities_gas_' + gasId);
+            
+            if ($(this).is(':checked')) {
+                // Add quantity input for this batch
+                const inputId = 'gas_qty_' + gasId + '_' + batchId;
+                const html = `
+                    <div data-batch-id="${batchId}" style="padding: 12px; background: #f9f9f9; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ff9800;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong style="color: #333;">${batchName}</strong>
+                            <span style="font-size: 12px; color: #666;">Available: ${available} Units</span>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                            <input type="number" id="${inputId}" class="gas-batch-qty" data-gas-id="${gasId}" data-batch-id="${batchId}" data-available="${available}" data-unit-price="${unitPrice}" min="0.01" step="0.01" placeholder="Quantity" style="flex: 1; padding: 8px; border: 2px solid #ff9800; border-radius: 4px;">
+                            <span style="font-size: 12px; color: #666; white-space: nowrap;">Max: ${available}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                            <span>Unit Price: <strong>RS ${unitPrice.toFixed(2)}</strong></span>
+                            <span>Total: <strong class="batch-total-${gasId}-${batchId}" style="color: #ff9800;">RS 0.00</strong></span>
+                        </div>
+                    </div>
+                `;
+                container.append(html);
+                container.show();
+            } else {
+                // Remove quantity input for this batch
+                container.find(`[data-batch-id="${batchId}"]`).fadeOut(200, function() {
+                    $(this).remove();
+                    if (container.find('[data-batch-id]').length === 0) {
+                        container.hide();
+                    }
+                });
+            }
+        });
+
+        // Handle gas batch quantity input
+        $(document).on('input', '.gas-batch-qty', function() {
+            const gasId = $(this).data('gas-id');
+            const batchId = $(this).data('batch-id');
+            const quantity = parseFloat($(this).val()) || 0;
+            const unitPrice = parseFloat($(this).data('unit-price'));
+            const available = parseFloat($(this).data('available'));
+            
+            // Validate max quantity
+            if (quantity > available) {
+                $(this).val(available);
+            }
+            
+            // Update total cost display
+            const totalCost = quantity * unitPrice;
+            $(`.batch-total-${gasId}-${batchId}`).text('RS ' + totalCost.toFixed(2));
+        });
+
+        // Function to collect gas data (multiple batches per gas)
+        function collectGasData() {
+            const gasData = [];
+
+            $('.gas-checkbox:checked').each(function() {
+                const gasId = $(this).data('gas-id');
+                const gasName = $(this).data('gas-name');
+                const container = $('#batch_quantities_gas_' + gasId);
+                
+                // Get all selected batches for this gas
+                container.find('[data-batch-id]').each(function() {
+                    const batchId = $(this).data('batch-id');
+                    const qtyInput = $(this).find('.gas-batch-qty');
+                    const quantity = parseFloat(qtyInput.val()) || 0;
+                    const unitPrice = parseFloat(qtyInput.data('unit-price'));
+                    
+                    if (quantity > 0) {
+                        gasData.push({
+                            gas_id: gasId,
+                            gas_name: gasName,
+                            batch_id: batchId,
+                            quantity: quantity,
+                            unit_price: unitPrice,
+                            total_price: (quantity * unitPrice).toFixed(2)
+                        });
+                    }
+                });
+            });
+
+            return gasData;
+        }
+
+
         // Function to collect parts data
         function collectPartsData() {
             const partsData = {
@@ -483,7 +681,6 @@ if ($result) {
 
             return partsData;
         }
-        // Filter models and sizes based on selected category
         $('#categoryID').on('change', function() {
             const selectedCategory = $(this).val();
             
@@ -531,11 +728,17 @@ if ($result) {
             // Collect parts data
             const partsData = collectPartsData();
             
+            // Collect gas data
+            const gasData = collectGasData();
+            
             // Store form data
             productFormData = $(this).serializeArray();
             
             // Add parts data to productFormData
             productFormData.push({ name: 'partsData', value: JSON.stringify(partsData) });
+            
+            // Add gas data to productFormData
+            productFormData.push({ name: 'gasData', value: JSON.stringify(gasData) });
             
             // Open serial numbers modal
             openSerialModal(quantity);
@@ -642,6 +845,16 @@ if ($result) {
         updateProductData = null;
     }
     
+    function showSuccessAlert(message) {
+        $('#successAlertText').text(message);
+        $('#successAlert').slideDown(300);
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            $('#successAlert').slideUp(300);
+        }, 5000);
+    }
+    
     function openSerialModalForUpdate(quantity, batchNumber) {
         $('#serialCountText').text(quantity);
         
@@ -666,12 +879,15 @@ if ($result) {
     function saveSerialNumbers(productID, batchNumber, serialNumbers) {
         const isUpdate = (updateProductData !== null);
         
-        // Extract parts data from productFormData
+        // Extract parts and gas data from productFormData
         let partsData = {};
+        let gasData = [];
         for (let i = 0; i < productFormData.length; i++) {
             if (productFormData[i].name === 'partsData') {
                 partsData = JSON.parse(productFormData[i].value);
-                break;
+            }
+            if (productFormData[i].name === 'gasData') {
+                gasData = JSON.parse(productFormData[i].value);
             }
         }
         
@@ -682,39 +898,35 @@ if ($result) {
                 productID: productID,
                 batchNumber: batchNumber,
                 serialNumbers: JSON.stringify(serialNumbers),
-                partsData: JSON.stringify(partsData)
+                partsData: JSON.stringify(partsData),
+                gasData: JSON.stringify(gasData)
             },
             dataType: 'json',
             success: function(response) {
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: isUpdate ? 'Product updated and serial numbers added successfully' : 'Product and serial numbers added successfully',
-                        timer: 2000,
-                        showConfirmButton: false
-                    }).then(() => {
-                        closeSerialModal();
+                    closeSerialModal();
+                    showSuccessAlert(isUpdate ? 'Product updated and serial numbers added successfully' : 'Product and serial numbers added successfully');
+                    setTimeout(() => {
                         loadContent('addProduct');
-                    });
+                    }, 2000);
                 } else {
+                    closeSerialModal();
                     Swal.fire({
                         icon: 'warning',
                         title: 'Partial Success',
-                        text: (isUpdate ? 'Product updated but' : 'Product saved but') + ' some serial numbers failed: ' + response.message
+                        text: (isUpdate ? 'Product updated but' : 'Product saved but') + ' some operations failed: ' + response.message
                     }).then(() => {
-                        closeSerialModal();
                         loadContent('addProduct');
                     });
                 }
             },
             error: function() {
+                closeSerialModal();
                 Swal.fire({
                     icon: 'warning',
                     title: 'Partial Success',
-                    text: (isUpdate ? 'Product updated but' : 'Product saved but') + ' failed to save serial numbers'
+                    text: (isUpdate ? 'Product updated but' : 'Product saved but') + ' failed to complete all operations'
                 }).then(() => {
-                    closeSerialModal();
                     loadContent('addProduct');
                 });
             }

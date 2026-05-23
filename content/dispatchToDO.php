@@ -277,7 +277,7 @@ if (isset($adminRole) && $adminRole === 'user') {
                             $hasPending = $officer['pendingAmount'] > 0;
                             $pendingText = $hasPending ? 'Pending: RS ' . number_format($officer['pendingAmount'], 0) : 'No pending amount';
                             ?>
-                            <option value="<?php echo $officer['DO_ID']; ?>" <?php echo $hasPending ? 'disabled' : ''; ?>>
+                            <option value="<?php echo $officer['DO_ID']; ?>">
                                 <?php echo htmlspecialchars($officer['DO_Name']); ?> (CNIC: <?php echo htmlspecialchars($officer['CNIC']); ?>) - <?php echo $pendingText; ?>
                             </option>
                         <?php endforeach; ?>

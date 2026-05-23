@@ -64,14 +64,12 @@ if ($result) {
                 </div>
 
                 <div class="form-group">
-                    <label for="regionID" class="form-label">Region</label>
-                    <select id="regionID" name="regionID" class="form-control" required>
-                        <option value="">Select Region</option>
-                        <?php foreach ($regions as $region): ?>
-                            <option value="<?php echo $region['regionID']; ?>">
-                                <?php echo htmlspecialchars($region['regionName']); ?>
-                            </option>
-                        <?php endforeach; ?>
+                    <label for="role" class="form-label">Role</label>
+                    <select id="role" name="role" class="form-control" required>
+                        <option value="">Select Role</option>
+                        <option value="superadmin">Super Admin</option>
+                        <option value="admin">Admin</option>
+                        <option value="user">User</option>
                     </select>
                 </div>
             </div>
@@ -79,27 +77,23 @@ if ($result) {
             <!-- Row 3: Role, Dashboard Access -->
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
                 <div class="form-group">
-                    <label for="role" class="form-label">Role</label>
-                    <select id="role" name="role" class="form-control" required>
-                        <option value="">Select Role</option>
-                        <option value="admin">Admin</option>
-                        <option value="do">DO (Delivery Officer)</option>
-                        <option value="ledger">Ledger</option>
+                    <label for="regionID" class="form-label">Region (select one or more — press & hold Ctrl key)</label>
+                    <select id="regionID" name="regionID[]" class="form-control" required multiple style="min-height:100px;">
+                        <?php foreach ($regions as $region): ?>
+                            <option value="<?php echo $region['regionID']; ?>">
+                                <?php echo htmlspecialchars($region['regionName']); ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="dashboard_access" class="form-label">Dashboard Access</label>
-                    <input type="text" id="dashboard_access" name="dashboard_access" class="form-control" placeholder="e.g., admin, do, ledger" required>
-                </div>
-
-                <div class="form-group">
+                <!-- <div class="form-group">
                     <label for="is_active" class="form-label">Status</label>
                     <select id="is_active" name="is_active" class="form-control" required>
                         <option value="1">Active</option>
                         <option value="0">Inactive</option>
                     </select>
-                </div>
+                </div> -->
             </div>
 
             <div style="text-align: center;">

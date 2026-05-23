@@ -108,7 +108,7 @@ require '../db.php';
         $('#availCount').text('0');
         $('#usedCount').text('0');
 
-        $.post('../eims/backend/getPartSerials.php', {
+        $.post('/backend/getPartSerials.php', {
             partName: part,
             regionID: region
         }, function(resp) {

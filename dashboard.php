@@ -18,6 +18,50 @@ if (isset($regionID) && $regionID) {
         $stmtReg->close();
     }
 }
+
+// Check if user has multiple regions and fetch available regions
+$userRegions = [];
+$haveMultipleRegions = 0;
+$currentRegionID = isset($regionID) ? $regionID : 0;
+
+if (isset($ID)) {
+    $checkStmt = $conn->prepare("SELECT haveMultipleRegions FROM users WHERE user_id = ?");
+    if ($checkStmt) {
+        $checkStmt->bind_param('i', $ID);
+        $checkStmt->execute();
+        $checkRes = $checkStmt->get_result();
+        if ($checkRes && $row = $checkRes->fetch_assoc()) {
+            $haveMultipleRegions = intval($row['haveMultipleRegions']);
+        } else {
+            error_log("No user found for user_id: " . $ID);
+        }
+        $checkStmt->close();
+    } else {
+        error_log("Prepare failed: " . $conn->error);
+    }
+} else {
+    error_log("user_id is not set in session");
+}
+
+// Fetch available regions for this user from user_regions table
+if ($haveMultipleRegions === 1) {
+    $regionStmt = $conn->prepare("
+            SELECT ur.regionID, r.regionName 
+            FROM user_regions ur 
+            LEFT JOIN regions r ON ur.regionID = r.regionID 
+            WHERE ur.user_id = ? 
+            ORDER BY r.regionName ASC
+        ");
+    if ($regionStmt) {
+        $regionStmt->bind_param('i', $ID);
+        $regionStmt->execute();
+        $regionRes = $regionStmt->get_result();
+        while ($regRow = $regionRes->fetch_assoc()) {
+            $userRegions[] = $regRow;
+        }
+        $regionStmt->close();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -62,9 +106,13 @@ if (isset($regionID) && $regionID) {
                 <!-- <div class="user-region" style="display:block; color: rgba(255,255,255,0.85); font-size:13px; margin-top:2px;">Region: <?php echo htmlspecialchars($regionName ?: 'N/A'); ?></div> -->
             </span>
             <button onclick="openChangePasswordModal()" class="nav-button" style="background-color: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3); padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.3s ease;">Change Password</button>
+            <?php if ($haveMultipleRegions === 1): ?>
+                <button onclick="showRegionSelectionModal()" class="nav-button" style="background-color: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3); padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.3s ease;">Change Region</button>
+            <?php endif; ?>
             <button onclick="handleLogout()" class="btn-logout">Logout</button>
         </div>
     </nav>
+
 
     <!-- Main Container -->
     <div class="dashboard-container">
@@ -84,6 +132,11 @@ if (isset($regionID) && $regionID) {
                     <span class="icon">📦</span>
                     <span>Parts</span>
                 </div>
+                <div class="menu-item active" onclick="loadContent('gases')">
+                    <!-- <span class="icon">🧪</span> -->
+                    <span class="icon">⛽</span>
+                    <span>Gases</span>
+                </div>
                 <div class="menu-item active" onclick="loadContent('batchHistory')">
                     <span class="icon">🕒</span>
                     <span>Batch History</span>
@@ -93,25 +146,25 @@ if (isset($regionID) && $regionID) {
                     <span>Search Serial Numbers</span>
                 </div>
                 <?php if ($adminRole === 'superadmin'): ?>
-                <div class="menu-item active" onclick="loadContent('doApproval')">
-                    <span class="icon">✓</span>
-                    <span>Add DO Approval</span>
-                    <span class="badge-count" id="doApprovalCount" style="display: none; margin-left:8px; background:#d9534f;
+                    <div class="menu-item active" onclick="loadContent('doApproval')">
+                        <span class="icon">✓</span>
+                        <span>Add DO Approval</span>
+                        <span class="badge-count" id="doApprovalCount" style="display: none; margin-left:8px; background:#d9534f;
                         color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;">
-                    </span>
-                </div>
-                <div class="menu-item active" onclick="loadContent('dispatchDOApproval')">
-                    <span class="icon">✓</span>
-                    <span>Dispatch DO Approval</span>
-                    <span class="badge-count" id="dispatchDOApprovalCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
-                </div>
+                        </span>
+                    </div>
+                    <div class="menu-item active" onclick="loadContent('dispatchDOApproval')">
+                        <span class="icon">✓</span>
+                        <span>Dispatch DO Approval</span>
+                        <span class="badge-count" id="dispatchDOApprovalCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
+                    </div>
                 <?php endif ?>
                 <?php if ($adminRole === 'admin'): ?>
-                <div class="menu-item active" onclick="loadContent('dispatchDOApprovalAdmin')">
-                    <span class="icon">✓</span>
-                    <span>Dispatch DO Approval</span>
-                    <span class="badge-count" id="dispatchDOApprovalAdminCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
-                </div>
+                    <div class="menu-item active" onclick="loadContent('dispatchDOApprovalAdmin')">
+                        <span class="icon">✓</span>
+                        <span>Dispatch DO Approval</span>
+                        <span class="badge-count" id="dispatchDOApprovalAdminCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
+                    </div>
                 <?php endif ?>
                 <div class="menu-item" onclick="toggleDropdown(this)">
                     <span class="icon">🚚</span>
@@ -125,7 +178,7 @@ if (isset($regionID) && $regionID) {
                     </div>
                     <div class="submenu-item" onclick="loadContent('doDispatchHistory')">
                         <span class="icon">📚</span>
-                        <span>DO Dispatch History</span>
+                        <span>Ledger</span>
                     </div>
                     <div class="submenu-item" onclick="loadContent('doPending')">
                         <span class="icon">⏳</span>
@@ -170,8 +223,18 @@ if (isset($regionID) && $regionID) {
                             <span class="icon">➕</span>
                             <span>Add Parts</span>
                         </div>
-                        <?php endif ?>
+                        <div class="submenu-item" onclick="loadContent('addGas')">
+                            <!-- <span class="icon">📦</span> -->
+                            <span class="icon">➕</span>
+                            <span>Add Gas</span>
+                        </div>
+                    <?php endif ?>
                     <?php if ($adminRole === 'superadmin'): ?>
+                        <div class="submenu-item" onclick="loadContent('addGas')">
+                            <!-- <span class="icon">📦</span> -->
+                            <span class="icon">➕</span>
+                            <span>Add Gas</span>
+                        </div>
                         <div class="submenu-item" onclick="loadContent('addParts')">
                             <!-- <span class="icon">📦</span> -->
                             <span class="icon">➕</span>
@@ -197,16 +260,14 @@ if (isset($regionID) && $regionID) {
                         <span class="icon">➕</span>
                         <span>Add Category</span>
                     </div> -->
-                        <div class="submenu-item" onclick="loadContent('addRegion')">
-                            <!-- <span class="icon">🌍</span> -->
+                        <!-- <div class="submenu-item" onclick="loadContent('addRegion')">
                             <span class="icon">➕</span>
                             <span>Add Region</span>
                         </div>
                         <div class="submenu-item" onclick="loadContent('addUser')">
-                            <!-- <span class="icon">🌍</span> -->
                             <span class="icon">➕</span>
                             <span>Add User</span>
-                        </div>
+                        </div> -->
                     <?php endif ?>
                     <div class="submenu-item" onclick="loadContent('addDistributingOfficer')">
                         <!-- <span class="icon">🌍</span> -->
@@ -246,6 +307,33 @@ if (isset($regionID) && $regionID) {
             </form>
         </div>
     </div>
+
+    <!-- Region Selection Modal -->
+    <div id="regionSelectionModal" class="modal" style="display:none; position:fixed; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; overflow:auto;">
+        <div style="background:white; border-radius:12px; max-width:500px; margin:10% auto; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+            <h2 style="margin:0 0 20px 0; color:#333; text-align:center;">Select Your Region</h2>
+            <p style="color:#666; text-align:center; margin-bottom:25px;">You have access to multiple regions. Please select the region you want to work with:</p>
+
+            <div class="form-group" style="margin-bottom:25px;">
+                <label for="availableRegionSelect" style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Available Regions</label>
+                <select id="availableRegionSelect" class="form-control" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                    <option value="">-- Select a Region --</option>
+                    <?php foreach ($userRegions as $region): ?>
+                        <option value="<?php echo $region['regionID']; ?>" <?php echo ($region['regionID'] == $currentRegionID) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($region['regionName']); ?>
+                            <?php echo ($region['regionID'] == $currentRegionID) ? ' (Currently Selected)' : ''; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display:flex; gap:12px; justify-content:center;">
+                <button onclick="confirmRegionSelection()" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding:12px 30px; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:14px;">Confirm</button>
+                <button onclick="closeRegionSelectionModal()" style="background:#f0f0f0; color:#333; padding:12px 30px; border:1px solid #ddd; border-radius:6px; cursor:pointer; font-weight:600; font-size:14px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="logout.js"></script>
     <script>
         // Toggle Sidebar
@@ -416,6 +504,79 @@ if (isset($regionID) && $regionID) {
             $('#changePasswordModal').hide();
             $('#changePasswordForm')[0].reset();
         }
+
+        // Region Selection Modal Functions
+        function showRegionSelectionModal() {
+            $('#regionSelectionModal').show();
+            $('body').css('overflow', 'hidden');
+        }
+
+        function closeRegionSelectionModal() {
+            $('#regionSelectionModal').hide();
+            $('body').css('overflow', 'auto');
+        }
+
+        function confirmRegionSelection() {
+            const selectedRegionID = $('#availableRegionSelect').val();
+
+            if (!selectedRegionID) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Please select a region',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // Save the selected region to the backend
+            $.ajax({
+                url: 'backend/updateUserRegion.php',
+                type: 'POST',
+                data: {
+                    regionID: selectedRegionID
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Store flag in localStorage
+                        localStorage.setItem('regionChanged', 'true');
+                        closeRegionSelectionModal();
+                        // Reload page to reflect region change
+                        location.reload();
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message || 'Failed to update region'
+                        });
+                    }
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Server error while updating region'
+                    });
+                }
+            });
+        }
+
+        // Initialize region selection on page load
+        $(document).ready(function() {
+            // Check if user has multiple regions and localStorage doesn't have the flag
+            const haveMultipleRegions = <?php echo $haveMultipleRegions; ?>;
+            const regionChanged = localStorage.getItem('regionChanged');
+
+            console.log('haveMultipleRegions:', haveMultipleRegions);
+            console.log('regionChanged flag:', regionChanged);
+
+            if (haveMultipleRegions === 1 && regionChanged !== 'true') {
+                setTimeout(() => {
+                    showRegionSelectionModal();
+                }, 500);
+            }
+        });
 
         $('#changePasswordForm').on('submit', function(e) {
             e.preventDefault();

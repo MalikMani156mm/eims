@@ -8,6 +8,8 @@ function handleLogout() {
         cancelButtonText: 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
+            // Clear the region selection flag on logout
+            localStorage.removeItem('regionChanged');
             window.location.href = "logout.php";
         }
     });

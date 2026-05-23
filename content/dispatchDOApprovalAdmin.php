@@ -15,7 +15,12 @@ if ($adminRole !== 'superadmin') {
 
 // Fetch DO sales awaiting admin approval (both approval columns NULL)
 $query = "
-    SELECT ds.*, do.DO_Name, do.CNIC, COUNT(dsi.itemID) as itemCount
+    SELECT ds.*, do.DO_Name, do.CNIC, COUNT(dsi.itemID) as itemCount,
+        COALESCE((
+            SELECT SUM(CASE WHEN s2.paymentStatus IN ('pending','partial') THEN s2.pendingAmount ELSE 0 END)
+            FROM do_sales s2
+            WHERE s2.DO_ID = ds.DO_ID
+        ), 0) as doPendingAmount
     FROM do_sales ds
     INNER JOIN distributing_officer do ON ds.DO_ID = do.DO_ID
     LEFT JOIN do_sale_items dsi ON ds.saleID = dsi.saleID
@@ -60,6 +65,7 @@ if ($result) {
                     <th>Date</th>
                     <th>DO Name</th>
                     <th>CNIC</th>
+                    <th>DO Pending</th>
                     <th>Items</th>
                     <th>Grand Total</th>
                     <th>Actions</th>
@@ -67,13 +73,14 @@ if ($result) {
             </thead>
             <tbody>
                 <?php if (empty($sales)): ?>
-                    <tr><td colspan="7" style="padding:18px; text-align:center; color:#666">No dispatches awaiting approval</td></tr>
+                    <tr><td colspan="8" style="padding:18px; text-align:center; color:#666">No dispatches awaiting approval</td></tr>
                 <?php else: foreach ($sales as $s): ?>
                     <tr>
                         <td><strong>#<?php echo str_pad($s['saleID'],6,'0',STR_PAD_LEFT); ?></strong></td>
                         <td><?php echo date('d M Y', strtotime($s['saleDate'])); ?></td>
                         <td><?php echo htmlspecialchars($s['DO_Name']); ?></td>
                         <td><code style="background:#f7f8fb;padding:4px 8px;border-radius:6px"><?php echo htmlspecialchars($s['CNIC']); ?></code></td>
+                        <td><strong>RS <?php echo number_format($s['doPendingAmount'] ?? 0,2); ?></strong></td>
                         <td><?php echo $s['itemCount']; ?> items</td>
                         <td><strong>RS <?php echo number_format($s['grandTotal'],2); ?></strong></td>
                         <td>
@@ -104,10 +111,22 @@ function viewSale(id) {
     $('#saleViewBody').html('<div style="padding:40px; text-align:center; color:#666">Loading...</div>');
     $('#saleViewModal').show();
     $.get('backend/getDispatchDetails.php', { saleID: id }, function(resp){
-        if (resp && resp.success) {
+            if (resp && resp.success) {
             let html = '';
             html += '<div style="margin-bottom:12px"><strong>Sale ID:</strong> #' + String(resp.data.sale.saleID).padStart(6,'0') + '</div>';
             html += '<div style="margin-bottom:12px"><strong>DO:</strong> ' + (resp.data.sale.DO_Name || '') + ' (' + (resp.data.sale.CNIC || '') + ')</div>';
+            html += '<div style="margin-bottom:12px"><strong>Amount Paid:</strong> RS ' + (resp.data.sale.amountPaid ? parseFloat(resp.data.sale.amountPaid).toFixed(2) : '0.00') + '</div>';
+            html += '<div style="margin-bottom:12px"><strong>Pending Amount:</strong> RS ' + (resp.data.sale.pendingAmount ? parseFloat(resp.data.sale.pendingAmount).toFixed(2) : '0.00') + '</div>';
+            // Show payment days and due date if present
+            if (resp.data.sale.paymentDays !== 0 && resp.data.sale.paymentDays !== null && resp.data.sale.paymentDays !== '') {
+                html += '<div style="margin-bottom:12px"><strong>Payment Days:</strong> ' + resp.data.sale.paymentDays + '</div>';
+            }
+            if (resp.data.sale.dueDate) {
+                // try to format date, fallback to raw string
+                var dd = new Date(resp.data.sale.dueDate);
+                var dueFormatted = isNaN(dd.getTime()) ? resp.data.sale.dueDate : dd.toLocaleDateString('en-GB');
+                html += '<div style="margin-bottom:12px"><strong>Due Date:</strong> ' + dueFormatted + '</div>';
+            }
             html += '<h4>Items</h4>';
             html += '<table style="width:100%; border-collapse:collapse">';
             html += '<tr><th style="text-align:left;padding:6px">#</th><th style="text-align:left;padding:6px">Serial</th><th style="text-align:left;padding:6px">Product</th><th style="text-align:left;padding:6px">Price</th></tr>';

@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $batchNumber = trim($_POST['batchNumber'] ?? '');
     $serialNumbersJSON = $_POST['serialNumbers'] ?? '';
     $partsDataJSON = $_POST['partsData'] ?? '{}';
+    $gasDataJSON = $_POST['gasData'] ?? '[]';
     
     // Validation
     if ($productID <= 0) {
@@ -27,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     $serialNumbers = json_decode($serialNumbersJSON, true);
     $partsData = json_decode($partsDataJSON, true);
+    $gasData = json_decode($gasDataJSON, true);
     
     if (!is_array($serialNumbers) || empty($serialNumbers)) {
         echo json_encode(['success' => false, 'message' => 'Invalid serial numbers format']);
@@ -106,6 +108,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+
+        // Handle gas allocation
+        if (!empty($gasData) && is_array($gasData)) {
+            $gasStmt = $conn->prepare("UPDATE gas_batch_details SET available = available - ? WHERE batch_id = ? AND available >= ?");
+            $gasLogStmt = $conn->prepare("INSERT INTO gas_logs (product_id, serial_number, gas_id, batch_id, quantity_used, unit_price, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            
+            foreach ($gasData as $gas) {
+                $batchId = intval($gas['batch_id']);
+                $gasId = intval($gas['gas_id']);
+                $quantity = floatval($gas['quantity']);
+                $unitPrice = floatval($gas['unit_price']);
+                $totalPrice = floatval($gas['total_price']);
+                
+                // Update available quantity in gas_batch_details
+                $gasStmt->bind_param("dii", $quantity, $batchId, $quantity);
+                $gasStmt->execute();
+                
+                // Insert into gas_logs - bind all 7 parameters correctly
+                $gasLogStmt->bind_param("isiiddd", $productID, $productSerial, $gasId, $batchId, $quantity, $unitPrice, $totalPrice);
+                $gasLogStmt->execute();
+            }
+            
+            $gasStmt->close();
+            $gasLogStmt->close();
+        }
         
         // Commit if at least some serials succeeded
         if ($successCount > 0) {
@@ -114,12 +141,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($failedSerials)) {
                 echo json_encode([
                     'success' => true, 
-                    'message' => "All $successCount serial numbers saved successfully for batch $batchNumber and parts issued"
+                    'message' => "All $successCount serial numbers saved successfully for batch $batchNumber and parts/gases issued"
                 ]);
             } else {
                 echo json_encode([
                     'success' => true, 
-                    'message' => "$successCount serial numbers saved, " . count($failedSerials) . " failed (possibly duplicates), parts issued"
+                    'message' => "$successCount serial numbers saved, " . count($failedSerials) . " failed (possibly duplicates), parts/gases issued"
                 ]);
             }
         } else {
