@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 ?>
 
 <link rel="stylesheet" href="assets/css/select2.min.css">

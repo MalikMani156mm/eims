@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 // Only superadmin should see this page; double-check
 if (!isset($adminRole) || $adminRole !== 'superadmin') {

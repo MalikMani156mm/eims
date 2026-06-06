@@ -1,17 +1,26 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
+
+// Fetch all brands for dropdown
+$brands = [];
+$brandsResult = $conn->query("SELECT * FROM brands ORDER BY brandName ASC");
+if ($brandsResult) {
+    while ($row = $brandsResult->fetch_assoc()) {
+        $brands[] = $row;
+    }
+}
 ?>
 
 <div class="container">
     <div class="packages-table">
         <h3>➕ Add Parts</h3>
-        
+
         <!-- Add Parts Form -->
         <div style="background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
             <form id="addPartsForm">
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-                    
+
                     <div class="form-group">
                         <label for="partName" class="form-label" style="color: black;">Part Name *</label>
                         <input type="text" id="partName" name="partName" class="form-control" placeholder="Enter part name" required>
@@ -21,6 +30,18 @@ require '../db.php';
                     <div class="form-group">
                         <label for="batchName" class="form-label" style="color: black;">Batch Name *</label>
                         <input type="text" id="batchName" name="batchName" class="form-control" placeholder="Enter batch name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="brandID" class="form-label" style="color: black;">Brand *</label>
+                        <select id="brandID" name="brandID" class="form-control" required>
+                            <option value="">Select Brand</option>
+                            <?php foreach ($brands as $brand): ?>
+                                <option value="<?php echo $brand['brandID']; ?>">
+                                    <?php echo htmlspecialchars($brand['brandName']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -62,6 +83,10 @@ require '../db.php';
                     <div>
                         <div style="font-size: 12px; color: #999; margin-bottom: 5px;">BATCH NAME</div>
                         <div style="font-size: 16px; font-weight: 600; color: #333;" id="displayBatchName">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: #999; margin-bottom: 5px;">BRAND</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #333;" id="displayBrandName">-</div>
                     </div>
                     <div>
                         <div style="font-size: 12px; color: #999; margin-bottom: 5px;">QUANTITY</div>
@@ -109,6 +134,7 @@ require '../db.php';
         formData = {
             partName: $('#partName').val().trim(),
             batchName: $('#batchName').val().trim(),
+            brandID: parseInt($('#brandID').val()),
             quantity: parseInt($('#quantity').val())
         };
 
@@ -119,6 +145,11 @@ require '../db.php';
 
         if (!formData.batchName) {
             Swal.fire('Error', 'Batch name is required', 'error');
+            return;
+        }
+
+        if (formData.brandID <= 0) {
+            Swal.fire('Error', 'Brand is required', 'error');
             return;
         }
 
@@ -148,6 +179,8 @@ require '../db.php';
     function openSerialModal() {
         $('#displayPartName').text(formData.partName);
         $('#displayBatchName').text(formData.batchName);
+        const brandText = $('#brandID option:selected').text();
+        $('#displayBrandName').text(brandText);
         $('#displayQuantity').text(formData.quantity);
 
         // Generate input fields for multiple serials
@@ -218,12 +251,13 @@ require '../db.php';
             if (!res.isConfirmed) return;
 
             $.ajax({
-                url: '/backend/saveParts.php',
+                url: 'backend/saveParts.php',
                 type: 'POST',
                 dataType: 'json',
                 data: JSON.stringify({
                     partName: formData.partName,
                     batchName: formData.batchName,
+                    brandID: formData.brandID,
                     quantity: formData.quantity,
                     noSerial: true
                 }),
@@ -251,12 +285,13 @@ require '../db.php';
 
     function savePartsWithSerials(serialNumbers) {
         $.ajax({
-            url: '/backend/saveParts.php',
+            url: 'backend/saveParts.php',
             type: 'POST',
             dataType: 'json',
             data: JSON.stringify({
                 partName: formData.partName,
                 batchName: formData.batchName,
+                brandID: formData.brandID,
                 quantity: formData.quantity,
                 serialNumbers: serialNumbers
             }),

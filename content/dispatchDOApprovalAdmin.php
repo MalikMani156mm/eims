@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 // Only admins (and superadmin) should access — admin will see only their region
 if (!isset($adminRole)) {

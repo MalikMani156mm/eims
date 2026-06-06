@@ -2,17 +2,26 @@
 header("Cache-Control: no-cache, no-store, must-revalidate"); // HTTP 1.1
 header("Pragma: no-cache"); // HTTP 1.0
 header("Expires: 0"); // Proxies
-require 'vendor/autoload.php';
-require 'db.php';
+require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/db.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
 $secretKey = "lkjasjriongwer294neiufie2498u92jkfdsni9743nu894nfdskdfnkv9843nfk7283";
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
 if (!isset($_COOKIE['auth_token'])) {
-    header("Location: index.php");
-    exit();
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit();
+    } else {
+        header("Location: index.php");
+        exit();
+    }
 }
 
 $jwt = $_COOKIE['auth_token'];
@@ -31,6 +40,13 @@ try {
     $regionID = $admin['regionID'];
     $dashboard = $admin['dashboard_access'];
 } catch (Exception $e) {
-    // Invalid or expired token
-    echo "<script>alert('Session expired, please login again.'); window.location.href = 'index.php';</script>";
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Session expired']);
+        exit();
+    } else {
+        echo "<script>alert('Session expired, please login again.'); window.location.href = 'index.php';</script>";
+        exit();
+    }
 }

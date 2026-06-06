@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 ?>
 
 <div class="container">
@@ -96,7 +96,7 @@ require '../db.php';
         $('#serialsList').html('Loading...');
         $('#serialIssuedTo').val('');
 
-        $.post('../eims/backend/getPartSerials.php', { partName: part, regionID: region }, function(resp) {
+        $.post('../backend/getPartSerials.php', { partName: part, regionID: region }, function(resp) {
             if (!resp || !resp.success) { Swal.fire('Error','Failed to load serials','error'); return; }
             $('#serialRegion').text(resp.regionName || 'Unknown');
             const avail = resp.available || [];
@@ -131,7 +131,7 @@ require '../db.php';
         const issuedProductSerial = $('#serialIssuedProductSerial').val().trim();
         if (!issuedTo) { Swal.fire('Error','"Issued To" is required','error'); return; }
         if (!issuedProductSerial) { Swal.fire('Error','"Issued Product Serial" is required','error'); return; }
-        $.post('../eims/backend/issueSerialParts.php', { partName: ctx.partName, regionID: ctx.regionID, serials: JSON.stringify(selected), issuedTo: issuedTo, issuedProductSerialNumber: issuedProductSerial }, function(resp){
+        $.post('../backend/issueSerialParts.php', { partName: ctx.partName, regionID: ctx.regionID, serials: JSON.stringify(selected), issuedTo: issuedTo, issuedProductSerialNumber: issuedProductSerial }, function(resp){
             if (!resp || !resp.success) { Swal.fire('Error', resp && resp.message?resp.message:'Issue failed','error'); return; }
             Swal.fire('Success', resp.message||'Issued','success');
             closeSerialModal();

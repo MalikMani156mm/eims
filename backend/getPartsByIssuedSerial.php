@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 $serialNumber = trim($_GET['serialNumber'] ?? '');
 if ($serialNumber === '') {
@@ -10,7 +10,7 @@ if ($serialNumber === '') {
 }
 
 try {
-    $stmt = $conn->prepare("SELECT partID, partName, serialNumber, batchName, quantity, status, issuedDate FROM parts WHERE issuedToSerialNumber = ? ORDER BY partName, serialNumber");
+    $stmt = $conn->prepare("SELECT p.partID, p.partName, p.serialNumber, p.batchName, p.quantity, p.status, p.issuedDate, p.brandID, COALESCE(b.brandName, '') AS brand FROM parts p LEFT JOIN brands b ON p.brandID = b.brandID WHERE p.issuedToSerialNumber = ? ORDER BY p.partName, p.serialNumber");
     $stmt->bind_param('s', $serialNumber);
     $stmt->execute();
     $res = $stmt->get_result();

@@ -1,10 +1,11 @@
 <?php
 header('Content-Type: application/json');
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $productName = trim($_POST['productName'] ?? '');
+    $brandID = intval($_POST['brandID'] ?? 0);
     $categoryID = intval($_POST['categoryID'] ?? 0);
     $colorID = intval($_POST['colorID'] ?? 0);
     $modelID = intval($_POST['modelID'] ?? 0);
@@ -23,6 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($categoryID <= 0) {
         echo json_encode(['success' => false, 'message' => 'Please select a category']);
+        exit;
+    }
+
+    if ($brandID <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Please select a brand']);
         exit;
     }
     
@@ -61,9 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // Check for duplicate product (same name, category, color, size, and region)
-    $checkStmt = $conn->prepare("SELECT productID FROM products WHERE productName = ? AND categoryID = ? AND colorID = ? AND sizeID = ? AND regionID = ?");
-    $checkStmt->bind_param("siiii", $productName, $categoryID, $colorID, $sizeID, $regionID);
+    // Check for duplicate product (same name, category, brand, color, size, and region)
+    $checkStmt = $conn->prepare("SELECT productID FROM products WHERE productName = ? AND categoryID = ? AND brandID = ? AND colorID = ? AND sizeID = ? AND regionID = ?");
+    $checkStmt->bind_param("siiiii", $productName, $categoryID, $brandID, $colorID, $sizeID, $regionID);
     $checkStmt->execute();
     $checkStmt->store_result();
     
@@ -78,9 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $conn->begin_transaction();
     
     try {
-        // Insert product (set available = quantity initially)
-        $stmt = $conn->prepare("INSERT INTO products (productName, categoryID, colorID, modelID, sizeID, batchNumber, quantity, available, regionID, cost, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiiiisiids", $productName, $categoryID, $colorID, $modelID, $sizeID, $batchNumber, $quantity, $quantity, $regionID, $cost, $description);
+        // Insert product (set available = quantity initially) including brandID
+        $stmt = $conn->prepare("INSERT INTO products (productName, categoryID, brandID, colorID, modelID, sizeID, batchNumber, quantity, available, regionID, cost, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("siiiiisiiids", $productName, $categoryID, $brandID, $colorID, $modelID, $sizeID, $batchNumber, $quantity, $quantity, $regionID, $cost, $description);
         
         if (!$stmt->execute()) {
             throw new Exception('Failed to add product');

@@ -1,4 +1,10 @@
 <?php
+// Prevent multiple database connections from duplicate includes
+if (defined('EIMS_DB_CONNECTED')) {
+    return;
+}
+define('EIMS_DB_CONNECTED', true);
+
 // Set timezone to Asia/Karachi globally
 date_default_timezone_set('Asia/Karachi');
 

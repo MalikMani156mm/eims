@@ -2,58 +2,58 @@
 require __DIR__ . '/../adminAuth.php';
 require __DIR__ . '/../db.php';
 
-// Fetch all regions
-$regions = [];
-$result = $conn->query("SELECT * FROM regions ORDER BY createdAt DESC");
+// Fetch all brands
+$brands = [];
+$result = $conn->query("SELECT * FROM brands ORDER BY createdAt DESC");
 if ($result) {
     while ($row = $result->fetch_assoc()) {
-        $regions[] = $row;
+        $brands[] = $row;
     }
 }
 ?>
 
 <div class="container">
-    <!-- Add Region Form -->
+    <!-- Add Brand Form -->
     <div class="form-container">
-        <h2>Add New Region</h2>
-        <form id="addRegionForm">
+        <h2>Add New Brand</h2>
+        <form id="addBrandForm">
             <div class="form-group">
-                <label for="regionName" class="form-label">Region Name</label>
-                <input type="text" id="regionName" name="regionName" class="form-control" placeholder="Enter region name" required>
+                <label for="brandName" class="form-label">Brand Name</label>
+                <input type="text" id="brandName" name="brandName" class="form-control" placeholder="Enter brand name" required>
             </div>
             <div style="text-align: center;">
-                <button type="submit" class="btn btn-primary">Add Region</button>
+                <button type="submit" class="btn btn-primary">Add Brand</button>
                 <button type="reset" class="btn btn-secondary">Clear</button>
             </div>
         </form>
     </div>
 
-    <!-- Display Regions -->
+    <!-- Display Brands -->
     <div class="packages-table">
-        <h3>Existing Regions</h3>
+        <h3>Existing Brands</h3>
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
                         <th>Serial No.</th>
-                        <th>Region Name</th>
+                        <th>Brand Name</th>
                         <th>Created At</th>
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="regionsTableBody">
-                    <?php if (empty($regions)): ?>
+                <tbody id="brandsTableBody">
+                    <?php if (empty($brands)): ?>
                         <tr>
-                            <td colspan="4" class="text-center">No regions found</td>
+                            <td colspan="4" class="text-center">No brands found</td>
                         </tr>
                     <?php else: ?>
-                        <?php $serial = 1; foreach ($regions as $region): ?>
+                        <?php $serial = 1; foreach ($brands as $brand): ?>
                             <tr>
                                 <td><?php echo $serial++; ?></td>
-                                <td><?php echo htmlspecialchars($region['regionName']); ?></td>
-                                <td><?php echo date('M d, Y H:i', strtotime($region['createdAt'])); ?></td>
+                                <td><?php echo htmlspecialchars($brand['brandName']); ?></td>
+                                <td><?php echo date('M d, Y H:i', strtotime($brand['createdAt'])); ?></td>
                                 <td class="text-center">
-                                    <button class="btn-delete" onclick="deleteRegion(<?php echo $region['regionID']; ?>)">Delete</button>
+                                    <button class="btn-delete" onclick="deleteBrand(<?php echo $brand['brandID']; ?>)">Delete</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -66,11 +66,11 @@ if ($result) {
 
 <script>
 $(document).ready(function() {
-    $('#addRegionForm').on('submit', function(e) {
+    $('#addBrandForm').on('submit', function(e) {
         e.preventDefault();
         
         $.ajax({
-            url: 'backend/saveRegion.php',
+            url: 'backend/saveBrand.php',
             type: 'POST',
             data: $(this).serialize(),
             dataType: 'json',
@@ -83,7 +83,7 @@ $(document).ready(function() {
                         timer: 2000,
                         showConfirmButton: false
                     }).then(() => {
-                        loadContent('addRegion');
+                        loadContent('addBrand');
                     });
                 } else {
                     Swal.fire({
@@ -97,14 +97,14 @@ $(document).ready(function() {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error!',
-                    text: 'Failed to add region'
+                    text: 'Failed to add brand'
                 });
             }
         });
     });
 });
 
-function deleteRegion(id) {
+function deleteBrand(id) {
     Swal.fire({
         title: 'Are you sure?',
         text: "You won't be able to revert this!",
@@ -116,7 +116,7 @@ function deleteRegion(id) {
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
-                url: 'backend/deleteRegion.php',
+                url: 'backend/deleteBrand.php',
                 type: 'POST',
                 data: { id: id },
                 dataType: 'json',
@@ -129,7 +129,7 @@ function deleteRegion(id) {
                             timer: 2000,
                             showConfirmButton: false
                         }).then(() => {
-                            loadContent('addRegion');
+                            loadContent('addBrand');
                         });
                     } else {
                         Swal.fire({
@@ -143,7 +143,7 @@ function deleteRegion(id) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error!',
-                        text: 'Failed to delete region'
+                        text: 'Failed to delete brand'
                     });
                 }
             });

@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 ?>
 
 <div class="container">
@@ -110,7 +110,7 @@ require '../db.php';
         _issueContext = { partName: part, regionID: region, batchName: batch };
 
         // Fetch available count for this row to ensure latest
-        $.post('../eims/backend/getPartSerials.php', { partName: part, regionID: region }, function(resp) {
+        $.post('../backend/getPartSerials.php', { partName: part, regionID: region }, function(resp) {
             if (!resp || !resp.success) {
                 Swal.fire('Error', resp && resp.message ? resp.message : 'Failed to load availability', 'error');
                 return;
@@ -154,7 +154,7 @@ require '../db.php';
         if (!issuedProductSerial) { Swal.fire('Error','"Issued Product Serial Number" is required','error'); return; }
 
         // Send to backend
-        $.post('../eims/backend/issueParts.php', { partName: _issueContext.partName, regionID: _issueContext.regionID, batchName: _issueContext.batchName, quantity: qty, issuedTo: issuedTo, issuedProductSerialNumber: issuedProductSerial }, function(resp) {
+        $.post('../backend/issueParts.php', { partName: _issueContext.partName, regionID: _issueContext.regionID, batchName: _issueContext.batchName, quantity: qty, issuedTo: issuedTo, issuedProductSerialNumber: issuedProductSerial }, function(resp) {
             if (!resp || !resp.success) {
                 Swal.fire('Error', resp && resp.message ? resp.message : 'Issue failed', 'error');
                 return;

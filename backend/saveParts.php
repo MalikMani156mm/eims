@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = file_get_contents('php://input');
@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validation
     $partName = trim($data['partName'] ?? '');
     $batchName = trim($data['batchName'] ?? '');
+    $brandID = intval($data['brandID'] ?? 0);
     $quantity = intval($data['quantity'] ?? 0);
     $serialNumbers = $data['serialNumbers'] ?? [];
 
@@ -25,6 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($batchName)) {
         echo json_encode(['success' => false, 'message' => 'Batch name is required']);
+        exit;
+    }
+
+    if ($brandID <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Brand is required']);
         exit;
     }
 
@@ -52,15 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->begin_transaction();
 
             // Prepare insert statement for no-serial records
-            $ins = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, quantity, status, createdAt, updatedAt) VALUES (?, NULL, ?, ?, 1, ?, NOW(), NOW())");
+            $ins = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, brandID, quantity, status, createdAt, updatedAt) VALUES (?, NULL, ?, ?, ?, 1, ?, NOW(), NOW())");
             if (!$ins) throw new Exception('Prepare failed: ' . $conn->error);
 
             $insertCount = 0;
             $status = 'available';
 
-            // Create a separate record for each item
+            // Create a separate record for each item with quantity = 1
             for ($i = 0; $i < $quantity; $i++) {
-                $ins->bind_param('siss', $partName, $regionID, $batchName, $status);
+                $ins->bind_param('sisis', $partName, $regionID, $batchName, $brandID, $status);
                 if (!$ins->execute()) throw new Exception('Insert failed: ' . $ins->error);
                 $insertCount++;
             }
@@ -81,10 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insertCount = 0;
 
         // Prepare two insert statements: one for serial provided, one for NULL serial
-        $stmtWithSerial = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, quantity, status, createdAt, updatedAt) 
-                                VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmtWithNull = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, quantity, status, createdAt, updatedAt) 
-                                VALUES (?, NULL, ?, ?, ?, ?, NOW(), NOW())");
+        $stmtWithSerial = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, brandID, quantity, status, createdAt, updatedAt) 
+                                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmtWithNull = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, brandID, quantity, status, createdAt, updatedAt) 
+                                VALUES (?, NULL, ?, ?, ?, ?, ?, NOW(), NOW())");
 
         if (!$stmtWithSerial || !$stmtWithNull) {
             throw new Exception('Prepare failed: ' . $conn->error);
@@ -96,18 +102,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Determine duplicate check depending on whether serial is provided
             if ($serialNumber === '') {
                 // Check for existing NULL serial for this part
-                $dupCheck = $conn->prepare("SELECT partID FROM parts WHERE partName = ? AND serialNumber IS NULL LIMIT 1");
+                // Check for existing NULL serial for this part and brand
+                $dupCheck = $conn->prepare("SELECT partID FROM parts WHERE partName = ? AND brandID = ? AND serialNumber IS NULL LIMIT 1");
                 if (!$dupCheck) {
                     throw new Exception('Prepare failed (dup check): ' . $conn->error);
                 }
-                $dupCheck->bind_param('s', $partName);
+                $dupCheck->bind_param('si', $partName, $brandID);
             } else {
                 // Check if this exact serial for this part already exists
-                $dupCheck = $conn->prepare("SELECT partID FROM parts WHERE partName = ? AND serialNumber = ? LIMIT 1");
+                $dupCheck = $conn->prepare("SELECT partID FROM parts WHERE partName = ? AND brandID = ? AND serialNumber = ? LIMIT 1");
                 if (!$dupCheck) {
                     throw new Exception('Prepare failed (dup check): ' . $conn->error);
                 }
-                $dupCheck->bind_param('ss', $partName, $serialNumber);
+                $dupCheck->bind_param('sis', $partName, $brandID, $serialNumber);
             }
 
             $dupCheck->execute();
@@ -124,10 +131,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($serialNumber === '') {
                 // Insert with NULL serial
                 $stmtWithNull->bind_param(
-                    "sisis",
+                    "sisiis",
                     $partName,
                     $regionID,
                     $batchName,
+                    $brandID,
                     $oneQuantity,
                     $status
                 );
@@ -138,11 +146,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Insert with provided serial
                 $stmtWithSerial->bind_param(
-                    "ssisis",
+                    "ssisiis",
                     $partName,
                     $serialNumber,
                     $regionID,
                     $batchName,
+                    $brandID,
                     $oneQuantity,
                     $status
                 );

@@ -212,6 +212,11 @@ if ($haveMultipleRegions === 1) {
                     <span class="dropdown-arrow">▼</span>
                 </div>
                 <div class="submenu">
+                    <div class="submenu-item" onclick="loadContent('addBrand')">
+                            <!-- <span class="icon">🎨</span> -->
+                            <span class="icon">➕</span>
+                            <span>Add Brands</span>
+                        </div>
                     <div class="submenu-item" onclick="loadContent('addProduct')">
                         <!-- <span class="icon">📦</span> -->
                         <span class="icon">➕</span>

@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 // Fetch all categories for dropdown
 $categories = [];
@@ -17,6 +17,15 @@ $colorsResult = $conn->query("SELECT * FROM colors ORDER BY colorName ASC");
 if ($colorsResult) {
     while ($row = $colorsResult->fetch_assoc()) {
         $colors[] = $row;
+    }
+}
+
+// Fetch all brands for dropdown
+$brands = [];
+$brandsResult = $conn->query("SELECT * FROM brands ORDER BY brandName ASC");
+if ($brandsResult) {
+    while ($row = $brandsResult->fetch_assoc()) {
+        $brands[] = $row;
     }
 }
 
@@ -124,6 +133,7 @@ $products = [];
 $result = $conn->query("
     SELECT 
         p.*,
+        b.brandName,
         c.categoryName,
         col.colorName,
         m.modelName,
@@ -131,6 +141,7 @@ $result = $conn->query("
         r.regionName
     FROM products p
     LEFT JOIN categories c ON p.categoryID = c.categoriesID
+    LEFT JOIN brands b ON p.brandID = b.brandID
     LEFT JOIN colors col ON p.colorID = col.colorID
     LEFT JOIN models m ON p.modelID = m.modelID
     LEFT JOIN sizes s ON p.sizeID = s.sizeID
@@ -182,6 +193,18 @@ if ($result) {
                         <?php foreach ($colors as $color): ?>
                             <option value="<?php echo $color['colorID']; ?>">
                                 <?php echo htmlspecialchars($color['colorName']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="brandID" class="form-label">Brand</label>
+                    <select id="brandID" name="brandID" class="form-control" required>
+                        <option value="">Select Brand</option>
+                        <?php foreach ($brands as $brand): ?>
+                            <option value="<?php echo $brand['brandID']; ?>">
+                                <?php echo htmlspecialchars($brand['brandName']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -258,7 +281,7 @@ if ($result) {
             </div>
 
             <!-- Parts Selection Section -->
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #667eea;">
+            <div id="partsSelectionContainer" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #667eea;">
                 <h4 style="margin-top: 0; color: #333; font-size: 18px;">📦 Select Parts to Issue</h4>
                 
                 <!-- Parts With Serial Numbers -->
@@ -359,6 +382,7 @@ if ($result) {
                         <th>Serial No.</th>
                         <th>Product Name</th>
                         <th>Category</th>
+                        <th>Brand</th>
                         <th>Color</th>
                         <th>Model</th>
                         <th>Region</th>
@@ -385,6 +409,7 @@ if ($result) {
                                 <td><?php echo $serial++; ?></td>
                                 <td><?php echo htmlspecialchars($product['productName']); ?></td>
                                 <td><?php echo htmlspecialchars($product['categoryName'] ?? 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($product['brandName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['colorName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['modelName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['regionName'] ?? 'N/A'); ?></td>
@@ -710,6 +735,96 @@ if ($result) {
             });
             $('#sizeID').val('');
         });
+
+        // When brand changes, fetch parts for that brand and update UI
+        $('#brandID').on('change', function() {
+            const brandID = $(this).val();
+            if (!brandID) return;
+            fetchPartsByBrand(brandID);
+        });
+
+        function fetchPartsByBrand(brandID) {
+            $.ajax({
+                url: 'backend/getPartsByBrand.php',
+                type: 'GET',
+                data: { brandID: brandID },
+                dataType: 'json',
+                success: function(res) {
+                    if (!res.success) {
+                        Swal.fire('Error', res.message || 'Failed to fetch parts', 'error');
+                        return;
+                    }
+                    renderPartsSelection(res.partsWithSerial, res.partsWithoutSerial);
+                },
+                error: function() {
+                    Swal.fire('Error', 'Failed to fetch parts', 'error');
+                }
+            });
+        }
+
+        function renderPartsSelection(partsWithSerial, partsWithoutSerial) {
+            let html = '';
+
+            // Parts with serials
+            if (Object.keys(partsWithSerial).length > 0) {
+                html += '<div style="margin-bottom: 20px;">';
+                html += '<h5 style="color: #667eea; margin-bottom: 15px;">Parts with Serial Numbers</h5>';
+                for (const partName in partsWithSerial) {
+                    const serialParts = partsWithSerial[partName];
+                    html += '<div class="form-group" style="margin-bottom: 15px;">';
+                    html += '<label class="form-label" style="color: black;">' + escapeHtml(partName) + '</label>';
+                    html += '<select class="form-control parts-serial-select" data-part-name="' + escapeHtml(partName) + '" multiple="multiple" style="width: 100%;">';
+                    for (const p of serialParts) {
+                        html += '<option value="' + p.partID + '" data-serial="' + escapeHtml(p.serialNumber) + '" data-batch="' + escapeHtml(p.batchName) + '">';
+                        html += 'Serial No: ' + escapeHtml(p.serialNumber) + ' (Batch: ' + escapeHtml(p.batchName) + ')';
+                        html += '</option>';
+                    }
+                    html += '</select></div>';
+                }
+                html += '</div>';
+            }
+
+            // Parts without serials
+            if (Object.keys(partsWithoutSerial).length > 0) {
+                html += '<div style="margin-top: 20px;">';
+                html += '<h5 style="color: #667eea; margin-bottom: 15px;">Parts without Serial Numbers</h5>';
+                for (const partName in partsWithoutSerial) {
+                    const availableCount = partsWithoutSerial[partName];
+                    const safeId = sanitizeId(partName);
+                    html += '<div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px;">';
+                    html += '<input type="checkbox" class="parts-no-serial-checkbox" data-part-name="' + escapeHtml(partName) + '" data-safe="' + safeId + '" data-available="' + availableCount + '" id="checkbox_' + safeId + '" style="width: 20px; height: 20px; cursor: pointer;">';
+                    html += '<label for="checkbox_' + safeId + '" style="margin: 0; cursor: pointer; flex: 1; font-weight: 500;">' + escapeHtml(partName) + ' (' + availableCount + ' available)</label>';
+                    html += '<div id="quantity_' + safeId + '" style="display: none; gap: 10px; align-items: center;">';
+                    html += '<label style="margin: 0; font-size: 14px;">Quantity:</label>';
+                    html += '<input type="number" class="parts-no-serial-qty" data-part-name="' + escapeHtml(partName) + '" data-safe="' + safeId + '" min="1" max="' + availableCount + '" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">';
+                    html += '</div></div>';
+                }
+                html += '</div>';
+            }
+
+            if (!html) html = '<p style="color: #666; text-align: center;">No parts available for selected brand</p>';
+
+            $('#partsSelectionContainer').html(html);
+
+            // Re-bind simple interactions for newly injected elements
+            $('.parts-no-serial-checkbox').on('change', function() {
+                const safe = $(this).data('safe');
+                if ($(this).is(':checked')) {
+                    $('#quantity_' + safe).show();
+                } else {
+                    $('#quantity_' + safe).hide();
+                }
+            });
+        }
+
+        function sanitizeId(text) {
+            return String(text).replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
 
         $('#addProductForm').on('submit', function(e) {
             e.preventDefault();

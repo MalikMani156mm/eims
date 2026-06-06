@@ -1,5 +1,6 @@
 <?php
-require 'vendor/autoload.php';
+
+require __DIR__ . '/vendor/autoload.php';
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
@@ -9,7 +10,8 @@ $host = "localhost";
 $dbname = "eims_db";
 $dbuser = "root";
 $dbpass = "";
-$secretKey = "lkjasjriongwer294neiufie2498u92jkfdsni9743nu894dskdkv9843nfk7283";
+
+$secretKey = "lkjasjriongwer294neiufie2498u92jkfdsni9743nu894nfdskdfnkv9843nfk7283";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = $_POST['username'];
@@ -49,6 +51,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             setcookie("auth_token", $jwt, [
                 'expires' => $expire,
+                'path' => '/',
+                // 'domain' => '.arkcooltec.com',
                 'secure' => false, // Set to true if using HTTPS
                 'httponly' => true,
                 'samesite' => 'Lax'

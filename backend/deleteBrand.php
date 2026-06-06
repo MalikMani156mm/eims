@@ -4,21 +4,21 @@ require __DIR__ . '/../adminAuth.php';
 require __DIR__ . '/../db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $sizeID = intval($_POST['id'] ?? 0);
+    $brandID = intval($_POST['id'] ?? 0);
     
-    if ($sizeID <= 0) {
-        echo json_encode(['success' => false, 'message' => 'Invalid tonnage ID']);
+    if ($brandID <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Invalid brand ID']);
         exit;
     }
     
     try {
-        $stmt = $conn->prepare("DELETE FROM sizes WHERE sizeID = ?");
-        $stmt->bind_param("i", $sizeID);
+        $stmt = $conn->prepare("DELETE FROM brands WHERE brandID = ?");
+        $stmt->bind_param("i", $brandID);
         
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Tonnage deleted successfully']);
+            echo json_encode(['success' => true, 'message' => 'Brand deleted successfully']);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to delete tonnage']);
+            echo json_encode(['success' => false, 'message' => 'Failed to delete brand']);
         }
         
         $stmt->close();

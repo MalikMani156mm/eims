@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 // Fetch all categories for filter dropdown
 $categories = [];
@@ -38,6 +38,15 @@ if ($colorsResult) {
     }
 }
 
+// Fetch all brands for filter dropdown
+$brands = [];
+$brandsResult = $conn->query("SELECT * FROM brands ORDER BY brandName ASC");
+if ($brandsResult) {
+    while ($row = $brandsResult->fetch_assoc()) {
+        $brands[] = $row;
+    }
+}
+
 // Fetch all sizes for filter dropdown
 $sizes = [];
 $sizesResult = $conn->query("SELECT * FROM sizes ORDER BY sizeName ASC");
@@ -60,6 +69,7 @@ if (isset($adminRole) && $adminRole !== 'superadmin') {
 $sql = "
     SELECT 
         p.*,
+        b.brandName,
         c.categoryName,
         col.colorName,
         m.modelName,
@@ -68,6 +78,7 @@ $sql = "
         COALESCE(AVG(pb.cost), p.cost) as averageCost
     FROM products p
     LEFT JOIN categories c ON p.categoryID = c.categoriesID
+    LEFT JOIN brands b ON p.brandID = b.brandID
     LEFT JOIN colors col ON p.colorID = col.colorID
     LEFT JOIN models m ON p.modelID = m.modelID
     LEFT JOIN sizes s ON p.sizeID = s.sizeID
@@ -126,6 +137,18 @@ if ($result) {
                         <?php endforeach; ?>
                     </select>
                 </div> -->
+
+                <div class="form-group">
+                    <label for="filterBrand" class="form-label">Brand</label>
+                    <select id="filterBrand" class="form-control select2-filter">
+                        <option value="">All Brands</option>
+                        <?php foreach ($brands as $brand): ?>
+                            <option value="<?php echo $brand['brandID']; ?>">
+                                <?php echo htmlspecialchars($brand['brandName']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
                 <div class="form-group">
                     <label for="filterModel" class="form-label">Model</label>
@@ -211,6 +234,7 @@ if ($result) {
                         <th>Serial No.</th>
                         <th>Product Name</th>
                         <th>Category</th>
+                        <th>Brand</th>
                         <th>Region</th>
                         <th>Model</th>
                         <th>Color</th>
@@ -225,7 +249,7 @@ if ($result) {
                 <tbody id="inventoryTableBody">
                     <?php if (empty($products)): ?>
                         <tr>
-                            <td colspan="11" class="text-center">No products found in inventory</td>
+                            <td colspan="12" class="text-center">No products found in inventory</td>
                         </tr>
                     <?php else: ?>
                         <?php
@@ -234,6 +258,7 @@ if ($result) {
                         ?>
                             <tr class="inventory-row"
                                 data-category="<?php echo $product['categoryID']; ?>"
+                                data-brand="<?php echo $product['brandID']; ?>"
                                 data-region="<?php echo $product['regionID']; ?>"
                                 data-model="<?php echo $product['modelID']; ?>"
                                 data-color="<?php echo $product['colorID']; ?>"
@@ -241,6 +266,7 @@ if ($result) {
                                 <td><?php echo $serial++; ?></td>
                                 <td><strong><?php echo htmlspecialchars($product['productName']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($product['categoryName'] ?? 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($product['brandName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['regionName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['modelName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['colorName'] ?? 'N/A'); ?></td>
@@ -359,6 +385,7 @@ if ($result) {
 
     function filterInventory() {
         const categoryFilter = $('#filterCategory').val();
+        const brandFilter = $('#filterBrand').val();
         const regionFilter = $('#filterRegion').val();
         const modelFilter = $('#filterModel').val();
         const colorFilter = $('#filterColor').val();
@@ -371,6 +398,7 @@ if ($result) {
         $('.inventory-row').each(function() {
             const row = $(this);
             const rowCategory = row.data('category').toString();
+            const rowBrand = (row.data('brand') || '').toString();
             const rowRegion = row.data('region').toString();
             const rowModel = row.data('model').toString();
             const rowColor = row.data('color').toString();
@@ -379,6 +407,7 @@ if ($result) {
             let show = true;
 
             if (categoryFilter && rowCategory !== categoryFilter) show = false;
+            if (brandFilter && rowBrand !== brandFilter) show = false;
             if (regionFilter && rowRegion !== regionFilter) show = false;
             if (modelFilter && rowModel !== modelFilter) show = false;
             if (colorFilter && rowColor !== colorFilter) show = false;
@@ -418,7 +447,7 @@ if ($result) {
         window.isClearing = true;
 
         // Clear Select2 selections
-        $('#filterCategory, #filterRegion, #filterModel, #filterColor, #filterSize').val(null).trigger('change');
+        $('#filterCategory, #filterBrand, #filterRegion, #filterModel, #filterColor, #filterSize').val(null).trigger('change');
 
         // Show all rows
         $('.inventory-row').show();
@@ -532,6 +561,6 @@ if ($result) {
         if (sizeFilter) params += 'size=' + sizeFilter + '&';
 
         // Navigate to export script from the app root
-        window.location.href = '/eims/backend/exportInventoryCSV.php?' + params;
+        window.location.href = 'backend/exportInventoryCSV.php?' + params;
     }
 </script>

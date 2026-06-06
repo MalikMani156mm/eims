@@ -1,6 +1,13 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
+
+// Fetch brands for filter
+$brands = [];
+$brandsRes = $conn->query("SELECT brandID, brandName FROM brands ORDER BY brandName ASC");
+if ($brandsRes) {
+    while ($r = $brandsRes->fetch_assoc()) $brands[] = $r;
+}
 ?>
 
 <div class="container">
@@ -8,11 +15,25 @@ require '../db.php';
         <h3>📦 Parts Inventory</h3>
 
         <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
+            <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+                <div style="min-width:220px;">
+                    <select id="filterBrandParts" class="form-control">
+                        <option value="">All Brands</option>
+                        <?php foreach ($brands as $b): ?>
+                            <option value="<?php echo $b['brandID']; ?>"><?php echo htmlspecialchars($b['brandName']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <input id="searchPartName" type="search" class="form-control" placeholder="Search part name..." />
+                </div>
+            </div>
             <table class="table" style="width:100%; border-collapse: collapse;">
                 <thead>
                     <tr style="text-align:left; border-bottom: 1px solid #eee;">
                         <th style="padding:12px">Part Name</th>
                         <th style="padding:12px">Batch</th>
+                        <th style="padding:12px">Brand</th>
                         <th style="padding:12px">Region</th>
                         <th style="padding:12px">Total</th>
                         <th style="padding:12px">Available</th>
@@ -20,14 +41,15 @@ require '../db.php';
                         <th style="padding:12px">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php
-                    $sql = "SELECT p.partName, p.batchName, p.regionID, COALESCE(r.regionName, 'Unknown') AS regionName,
+                <tbody id="partsTableBody">
+                        <?php
+                        $sql = "SELECT p.partName, p.batchName, b.brandName, p.brandID, p.regionID, COALESCE(r.regionName, 'Unknown') AS regionName,
                                                                 SUM(CASE WHEN p.status = 'available' THEN IF(p.quantity > 0, p.quantity, 1) ELSE 0 END) AS availableCount,
                                                                 SUM(CASE WHEN p.status = 'used' THEN IF(p.quantity > 0, p.quantity, 1) ELSE 0 END) AS usedCount
                                                         FROM parts p
                                                         LEFT JOIN regions r ON p.regionID = r.regionID
-                                                        GROUP BY p.partName, p.batchName, p.regionID
+                                                        LEFT JOIN brands b ON p.brandID = b.brandID
+                                        GROUP BY p.partName, p.batchName, p.regionID, p.brandID
                                                         ORDER BY p.partName";
 
                     $res = $conn->query($sql);
@@ -35,14 +57,17 @@ require '../db.php';
                         while ($row = $res->fetch_assoc()) {
                             $partName = htmlspecialchars($row['partName']);
                             $regionID = (int)$row['regionID'];
+                            $brandID = isset($row['brandID']) ? (int)$row['brandID'] : 0;
                             $regionName = htmlspecialchars($row['regionName']);
                             $available = (int)$row['availableCount'];
                             $used = (int)$row['usedCount'];
                             $total = $available + $used;
-                            echo "<tr>";
+                            echo "<tr class=\"parts-row\" data-part=\"{$partName}\" data-region=\"{$regionID}\" data-brand=\"{$brandID}\">";
                             echo "<td style=\"padding:12px\">{$partName}</td>";
                             $batchNameEsc = htmlspecialchars($row['batchName']);
                             echo "<td style=\"padding:12px\">{$batchNameEsc}</td>";
+                            $brandNameEsc = htmlspecialchars($row['brandName']);
+                            echo "<td style=\"padding:12px\">{$brandNameEsc}</td>";
                             echo "<td style=\"padding:12px\">{$regionName}</td>";
                             echo "<td style=\"padding:12px\">" . $total . "</td>";
                             echo "<td style=\"padding:12px\">{$available}</td>";
@@ -51,7 +76,7 @@ require '../db.php';
                             echo "</tr>";
                         }
                     } else {
-                        echo '<tr><td colspan="7" style="padding:12px">No parts found</td></tr>';
+                        echo '<tr><td colspan="8" style="padding:12px">No parts found</td></tr>';
                     }
                     ?>
                 </tbody>
@@ -108,7 +133,7 @@ require '../db.php';
         $('#availCount').text('0');
         $('#usedCount').text('0');
 
-        $.post('/backend/getPartSerials.php', {
+        $.post('/eims/backend/getPartSerials.php', {
             partName: part,
             regionID: region
         }, function(resp) {
@@ -151,7 +176,7 @@ require '../db.php';
                     if (!s.serialNumber) {
                         $('#usedList').append('<div>' + ("(no serial)") + (qty > 1 ? ' × ' + qty : '') + (s.issuedDate ? ' — issued: ' + s.issuedDate : (s.createdAt ? ' — ' + s.createdAt : '')) + '</div>');
                     } else {
-                        $('#usedList').append('<div>' + s.serialNumber + (qty > 1 ? ' × ' + qty : '') + (s.issuedDate ? ' — issued: ' + s.issuedDate : (s.createdAt ? ' — ' + s.createdAt : '')) + '</div>');
+                        $('#usedList').append('<div>' + 'Serial Number: ' + s.serialNumber + (qty > 1 ? ' × ' + qty : '') + (s.issuedDate ? ' — issued: ' + s.issuedDate : (s.createdAt ? ' — ' + s.createdAt : '')) + '</div>');
                     }
                 });
             }
@@ -162,6 +187,32 @@ require '../db.php';
             Swal.fire('Error', 'Unable to contact server', 'error');
         });
     });
+
+    // Client-side filtering for brand and part name
+    function filterParts() {
+        const brand = $('#filterBrandParts').val();
+        const q = ($('#searchPartName').val() || '').toLowerCase().trim();
+        let visible = 0;
+        $('.parts-row').each(function() {
+            const r = $(this);
+            const rowBrand = (r.data('brand') || '').toString();
+            const part = (r.data('part') || '').toLowerCase();
+            let show = true;
+            if (brand && rowBrand !== brand) show = false;
+            if (q && part.indexOf(q) === -1) show = false;
+            if (show) { r.show(); visible++; } else { r.hide(); }
+        });
+        if (visible === 0) {
+            if ($('#noPartsRow').length === 0) {
+                $('#partsTableBody').append('<tr id="noPartsRow"><td colspan="8" style="padding:12px">No parts match the filter</td></tr>');
+            }
+        } else {
+            $('#noPartsRow').remove();
+        }
+    }
+
+    $('#filterBrandParts').on('change', filterParts);
+    $('#searchPartName').on('input', filterParts);
 </script>
 
 <?php

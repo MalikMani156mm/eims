@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sizeName = trim($_POST['sizeName'] ?? '');

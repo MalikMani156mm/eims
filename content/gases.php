@@ -1,5 +1,5 @@
 <?php
-require '../db.php';
+require __DIR__ . '/../db.php';
 
 // Fetch all gases from gas_master with aggregated batch data
 $gases = [];

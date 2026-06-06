@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 header('Content-Type: application/json');
 
 if (!isset($_POST['saleID']) || !is_numeric($_POST['saleID'])) {

@@ -1,6 +1,6 @@
 <?php
-require '../adminAuth.php';
-require '../db.php';
+require __DIR__ . '/../adminAuth.php';
+require __DIR__ . '/../db.php';
 ?>
 
 <div class="container">
@@ -328,6 +328,7 @@ require '../db.php';
                         partsHtml += `<div style="display:flex; gap:12px; align-items:center;"><div style="font-weight:600; color:#666;">Serial Number:</div><div style="font-family:monospace; color:#222;">${s.serialNumber}</div></div>`;
                         partsHtml += `<div style="background:#4caf50; color:#fff; padding:6px 10px; border-radius:6px; font-weight:700; font-size:13px;">Issued</div>`;
                         partsHtml += '</div>';
+                        partsHtml += `<div style="font-size:13px; color:#666; margin-bottom:6px;">Brand: ${s.brand || '(unknown)'}</div>`;
                         partsHtml += `<div style="font-size:13px; color:#666; margin-bottom:6px;">Issued on: ${issuedAt}</div>`;
                     });
                 }
