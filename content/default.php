@@ -11,12 +11,12 @@ $regionCount = $conn->query("SELECT COUNT(*) as count FROM regions")->fetch_asso
 $productCount = 0;
 $availableStockTotal = 0;
 if (isset($adminRole) && $adminRole === 'superadmin') {
-    $productCount = $conn->query("SELECT COUNT(*) as count FROM products")->fetch_assoc()['count'];
-    $availableStockTotal = $conn->query("SELECT COALESCE(SUM(available), 0) as total FROM products")->fetch_assoc()['total'];
+    $productCount = $conn->query("SELECT COUNT(*) as count FROM products WHERE status = 1")->fetch_assoc()['count'];
+    $availableStockTotal = $conn->query("SELECT COALESCE(SUM(available), 0) as total FROM products WHERE status = 1")->fetch_assoc()['total'];
 } else {
     $regionIDToUse = isset($regionID) ? intval($regionID) : 0;
-    $productCount = $conn->query("SELECT COUNT(*) as count FROM products WHERE regionID = " . $regionIDToUse)->fetch_assoc()['count'];
-    $availableStockTotal = $conn->query("SELECT COALESCE(SUM(available), 0) as total FROM products WHERE regionID = " . $regionIDToUse)->fetch_assoc()['total'];
+    $productCount = $conn->query("SELECT COUNT(*) as count FROM products WHERE regionID = " . $regionIDToUse . " AND status = 1")->fetch_assoc()['count'];
+    $availableStockTotal = $conn->query("SELECT COALESCE(SUM(available), 0) as total FROM products WHERE regionID = " . $regionIDToUse . " AND status = 1")->fetch_assoc()['total'];
 }
 
 // DO Stats

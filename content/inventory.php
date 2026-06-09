@@ -61,9 +61,9 @@ $products = [];
 // Apply region filter for non-superadmin users
 $products = [];
 $regionIDToUse = isset($regionID) ? intval($regionID) : 0;
-$whereClause = '';
+$whereClause = 'WHERE p.status = 1';
 if (isset($adminRole) && $adminRole !== 'superadmin') {
-    $whereClause = "WHERE p.regionID = " . $regionIDToUse;
+    $whereClause = "WHERE p.regionID = " . $regionIDToUse . " AND p.status = 1";
 }
 
 $sql = "

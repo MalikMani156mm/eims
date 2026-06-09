@@ -7,10 +7,11 @@ date_default_timezone_set('Asia/Karachi');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $gasName = trim($_POST['gasName'] ?? '');
     $batchName = trim($_POST['batchName'] ?? '');
+    $vendorID = intval($_POST['vendorID'] ?? 0);
     $regionID = intval($_POST['regionID'] ?? 0);
     $quantity = floatval($_POST['quantity'] ?? 0);
     $unitPrice = floatval($_POST['unitPrice'] ?? 0);
-    $totalPrice = floatval($_POST['totalPrice'] ?? 0);
+    $paidPrice = floatval($_POST['paidPrice'] ?? 0);
 
     // Validation
     if (empty($gasName)) {
@@ -20,6 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($batchName)) {
         echo json_encode(['success' => false, 'message' => 'Batch name is required']);
+        exit;
+    }
+
+    if ($vendorID <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Please select a valid vendor']);
         exit;
     }
 
@@ -37,6 +43,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'message' => 'Unit price must be greater than 0']);
         exit;
     }
+
+    if ($paidPrice < 0) {
+        echo json_encode(['success' => false, 'message' => 'Paid price cannot be negative']);
+        exit;
+    }
+
+    $totalPrice = $quantity * $unitPrice;
+    if ($paidPrice > $totalPrice) {
+        echo json_encode(['success' => false, 'message' => 'Paid price cannot be greater than total price']);
+        exit;
+    }
+
+    $pendingPrice = $totalPrice - $paidPrice;
+
+    // Verify vendor exists
+    $vendorCheckStmt = $conn->prepare("SELECT vendorID FROM vendors WHERE vendorID = ? LIMIT 1");
+    if (!$vendorCheckStmt) {
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $conn->error]);
+        exit;
+    }
+    $vendorCheckStmt->bind_param('i', $vendorID);
+    $vendorCheckStmt->execute();
+    $vendorCheckStmt->store_result();
+    if ($vendorCheckStmt->num_rows === 0) {
+        $vendorCheckStmt->close();
+        echo json_encode(['success' => false, 'message' => 'Selected vendor does not exist']);
+        exit;
+    }
+    $vendorCheckStmt->close();
 
     // Check if gas name already exists
     $checkGasStmt = $conn->prepare("SELECT gas_id FROM gas_master WHERE gas_name = ?");
@@ -61,17 +96,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Step 1: Insert batch entry in gas_batch_details first (with gas_id = NULL initially, to get batch_id)
         $batchStmt = $conn->prepare("
-            INSERT INTO gas_batch_details (gas_id, batchName, regionID, quantity, available, unit_price, total_price) 
-            VALUES (NULL, ?, ?, ?, ?, ?, ?)
+            INSERT INTO gas_batch_details (gas_id, batchName, regionID, vendorID, quantity, available, unit_price, total_price, paid_price, pending_price) 
+            VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         if (!$batchStmt) {
             throw new Exception('Prepare failed: ' . $conn->error);
         }
 
-        $available = $quantity; // Initially all quantity is available
+        $available = $quantity;
         $batchTotalPrice = $quantity * $unitPrice;
 
-        $batchStmt->bind_param('siiidd', $batchName, $regionID, $quantity, $available, $unitPrice, $batchTotalPrice);
+        $batchStmt->bind_param('siiiddddd', $batchName, $regionID, $vendorID, $quantity, $available, $unitPrice, $batchTotalPrice, $paidPrice, $pendingPrice);
 
         if (!$batchStmt->execute()) {
             throw new Exception('Failed to insert batch: ' . $batchStmt->error);
@@ -82,14 +117,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Step 2: Insert gas entry in gas_master with the batch_id we just got
         $gasStmt = $conn->prepare("
-            INSERT INTO gas_master (gas_name, batch_id, quantity, unit_price) 
-            VALUES (?, ?, ?, ?)
+            INSERT INTO gas_master (gas_name, batch_id, vendorID, quantity, unit_price, paid_price, pending_price) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
         if (!$gasStmt) {
             throw new Exception('Prepare failed: ' . $conn->error);
         }
 
-        $gasStmt->bind_param('sidd', $gasName, $batchId, $quantity, $unitPrice);
+        $gasStmt->bind_param('siidddd', $gasName, $batchId, $vendorID, $quantity, $unitPrice, $paidPrice, $pendingPrice);
 
         if (!$gasStmt->execute()) {
             throw new Exception('Failed to insert gas: ' . $gasStmt->error);

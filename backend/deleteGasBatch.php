@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 require __DIR__ . '/../adminAuth.php';
 require __DIR__ . '/../db.php';
+require __DIR__ . '/gasHelpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $batchId = intval($_POST['batch_id'] ?? 0);
@@ -79,39 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $deleteGasStmt->close();
             $message = 'Gas batch deleted successfully (all batches removed)';
         } else {
-            // Recalculate gas_master totals from remaining batches
-            $getRemainStmt = $conn->prepare("
-                SELECT 
-                    SUM(quantity) as total_qty,
-                    SUM(total_price) as total_amount
-                FROM gas_batch_details 
-                WHERE gas_id = ?
-            ");
-            if (!$getRemainStmt) {
-                throw new Exception('Prepare failed: ' . $conn->error);
-            }
-
-            $getRemainStmt->bind_param('i', $gasId);
-            $getRemainStmt->execute();
-            $remainResult = $getRemainStmt->get_result()->fetch_assoc();
-            $newTotalQty = $remainResult['total_qty'];
-            $newTotalAmount = $remainResult['total_amount'];
-            $newAvgPrice = ($newTotalQty > 0) ? ($newTotalAmount / $newTotalQty) : 0;
-            $getRemainStmt->close();
-
-            // Update gas_master
-            $updateGasStmt = $conn->prepare("UPDATE gas_master SET quantity = ?, unit_price = ? WHERE gas_id = ?");
-            if (!$updateGasStmt) {
-                throw new Exception('Prepare failed: ' . $conn->error);
-            }
-
-            $updateGasStmt->bind_param('ddi', $newTotalQty, $newAvgPrice, $gasId);
-
-            if (!$updateGasStmt->execute()) {
-                throw new Exception('Failed to update gas: ' . $updateGasStmt->error);
-            }
-
-            $updateGasStmt->close();
+            syncGasMasterFromBatches($conn, intval($gasId));
             $message = 'Gas batch deleted successfully';
         }
 

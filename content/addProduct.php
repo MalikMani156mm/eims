@@ -65,11 +65,11 @@ $partsResult = $conn->query("
 if ($partsResult) {
     while ($row = $partsResult->fetch_assoc()) {
         $partName = $row['partName'];
-        
+
         // Check if this part has any serial numbers
         $serialCheck = $conn->query("SELECT COUNT(*) as count FROM parts WHERE partName = '$partName' AND serialNumber IS NOT NULL LIMIT 1");
         $serialCount = $serialCheck->fetch_assoc()['count'];
-        
+
         if ($serialCount > 0) {
             // Parts with serials - get all available records with serial numbers
             $serialParts = [];
@@ -83,8 +83,9 @@ if ($partsResult) {
                 $partsWithSerial[$partName] = $serialParts;
             }
         } else {
-            // Parts without serials - get count of available records
-            $noSerialCheck = $conn->query("SELECT COUNT(*) as count FROM parts WHERE partName = '$partName' AND serialNumber IS NULL AND status = 'available'");
+            // Parts without serials - get available quantity, supporting both
+            // one-row-per-item records and older aggregate quantity rows.
+            $noSerialCheck = $conn->query("SELECT SUM(CASE WHEN quantity > 0 THEN quantity ELSE 1 END) as count FROM parts WHERE partName = '$partName' AND serialNumber IS NULL AND status = 'available'");
             $noSerialCount = $noSerialCheck->fetch_assoc()['count'];
             if ($noSerialCount > 0) {
                 $partsWithoutSerial[$partName] = $noSerialCount;
@@ -104,7 +105,7 @@ if ($gasesResult) {
     while ($row = $gasesResult->fetch_assoc()) {
         $gasId = $row['gas_id'];
         $gasName = $row['gas_name'];
-        
+
         // Get all batches for this gas
         $batches = [];
         $batchesResult = $conn->query("
@@ -118,7 +119,7 @@ if ($gasesResult) {
                 $batches[] = $batch;
             }
         }
-        
+
         if (!empty($batches)) {
             $gases[$gasName] = [
                 'gas_id' => $gasId,
@@ -166,14 +167,14 @@ if ($result) {
             </div>
         </div>
     </div>
-    
+
     <!-- Add Product Form -->
     <div class="form-container">
-        <h2>Add New Product</h2>
+        <h2>Issue For Assembling</h2>
         <form id="addProductForm">
             <!-- Hidden CategoryID field - Always set to 1 -->
             <input type="hidden" id="categoryID" name="categoryID" value="1">
-            
+
             <!-- Row 1: Product Name, Batch Number, Color -->
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
                 <div class="form-group">
@@ -193,18 +194,6 @@ if ($result) {
                         <?php foreach ($colors as $color): ?>
                             <option value="<?php echo $color['colorID']; ?>">
                                 <?php echo htmlspecialchars($color['colorName']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="brandID" class="form-label">Brand</label>
-                    <select id="brandID" name="brandID" class="form-control" required>
-                        <option value="">Select Brand</option>
-                        <?php foreach ($brands as $brand): ?>
-                            <option value="<?php echo $brand['brandID']; ?>">
-                                <?php echo htmlspecialchars($brand['brandName']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -238,7 +227,7 @@ if ($result) {
                 </div>
 
                 <div class="form-group">
-                    <label for="cost" class="form-label">Price</label>
+                    <label for="cost" class="form-label">Assembling Cost</label>
                     <input type="number" id="cost" name="cost" class="form-control" placeholder="Enter price of AC" min="0" step="0.01" required>
                 </div>
             </div>
@@ -247,7 +236,7 @@ if ($result) {
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                 <!-- Quantity hidden field - Always set to 1 -->
                 <input type="hidden" id="quantity" name="quantity" value="1">
-                
+
                 <!-- <div class="form-group">
                     <label class="form-label">Quantity</label>
                     <input type="number" class="form-control" value="1" disabled style="background-color: #f0f0f0; cursor: not-allowed;">
@@ -266,12 +255,23 @@ if ($result) {
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <?php endif; ?>
-                    <input type="hidden" id="regionID" name="regionID" value="<?php echo $regionID; ?>">
-                    <!--<div class="form-group">
+                <?php endif; ?>
+                <input type="hidden" id="regionID" name="regionID" value="<?php echo $regionID; ?>">
+                <!--<div class="form-group">
                         <label class="form-label">Region</label>
                         <input type="text" class="form-control" value="<?php echo htmlspecialchars($regions[array_search($regionID, array_column($regions, 'regionID'))] ? $regions[array_search($regionID, array_column($regions, 'regionID'))]['regionName'] : 'Unknown'); ?>" disabled style="background-color: #f0f0f0; cursor: not-allowed;">
                     </div> -->
+                <div class="form-group">
+                    <label for="brandID" class="form-label">Brand</label>
+                    <select id="brandID" name="brandID" class="form-control" required>
+                        <option value="">Select Brand</option>
+                        <?php foreach ($brands as $brand): ?>
+                            <option value="<?php echo $brand['brandID']; ?>">
+                                <?php echo htmlspecialchars($brand['brandName']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
 
             <!-- Row 4: Description -->
@@ -283,7 +283,7 @@ if ($result) {
             <!-- Parts Selection Section -->
             <div id="partsSelectionContainer" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #667eea;">
                 <h4 style="margin-top: 0; color: #333; font-size: 18px;">📦 Select Parts to Issue</h4>
-                
+
                 <!-- Parts With Serial Numbers -->
                 <?php if (!empty($partsWithSerial)): ?>
                     <div style="margin-bottom: 20px;">
@@ -324,7 +324,7 @@ if ($result) {
             <!-- Gases Selection Section -->
             <div style="background: #fff8f0; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #ff9800;">
                 <h4 style="margin-top: 0; color: #333; font-size: 18px;">⛽ Select Gases to Issue</h4>
-                
+
                 <?php if (!empty($gases)): ?>
                     <div style="margin-bottom: 20px;">
                         <?php foreach ($gases as $gasName => $gasData): ?>
@@ -347,7 +347,7 @@ if ($result) {
                                                     </label>
                                                     <span style="background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">Available: <?php echo $batch['available']; ?> Units</span>
                                                 </div>
-                                                <div style="color: #666; font-size: 13px;">Unit Price: <strong>RS <?php echo number_format($batch['unit_price'], 2); ?></strong></div>
+                                                <div style="color: #666; font-size: 13px;">Assembling Cost: <strong>RS <?php echo number_format($batch['unit_price'], 2); ?></strong></div>
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
@@ -366,7 +366,7 @@ if ($result) {
             </div>
 
             <div style="text-align: center;">
-                <button type="submit" class="btn btn-primary">Add Product</button>
+                <button type="submit" class="btn btn-primary">Issued</button>
                 <button type="reset" class="btn btn-secondary">Clear</button>
             </div>
         </form>
@@ -374,7 +374,7 @@ if ($result) {
 
     <!-- Display Products -->
     <div class="packages-table">
-        <h3>Existing Products</h3>
+        <h3>Previous Logs</h3>
         <div class="table-responsive">
             <table class="table">
                 <thead>
@@ -398,10 +398,10 @@ if ($result) {
                             <td colspan="10" class="text-center">No products found</td>
                         </tr>
                     <?php else: ?>
-                        <?php 
+                        <?php
                         $serial = 1;
                         $today = date('Y-m-d');
-                        foreach ($products as $product): 
+                        foreach ($products as $product):
                             $productDate = date('Y-m-d', strtotime($product['createdAt']));
                             $isToday = ($productDate === $today);
                         ?>
@@ -418,7 +418,7 @@ if ($result) {
                                 <td><strong>RS <?php echo number_format($product['cost'], 2); ?></strong></td>
                                 <td class="text-center">
                                     <button class="btn btn-primary" style="padding: 8px 16px; margin-right: 5px;" onclick="viewProduct(<?php echo htmlspecialchars(json_encode($product)); ?>)">View</button>
-                                    <button class="btn btn-success" style="padding: 8px 16px; margin-right: 5px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="openUpdateModal(<?php echo htmlspecialchars(json_encode($product)); ?>)">Update</button>
+                                    <!-- <button class="btn btn-success" style="padding: 8px 16px; margin-right: 5px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="openUpdateModal(<?php echo htmlspecialchars(json_encode($product)); ?>)">Update</button> -->
                                     <button class="btn btn-info" style="padding: 8px 16px; margin-right: 5px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);" onclick="openBatchLogsModal(<?php echo $product['productID']; ?>)">Logs</button>
                                     <?php if ($isToday): ?>
                                         <button class="btn-delete" onclick="deleteProduct(<?php echo $product['productID']; ?>)">Delete</button>
@@ -478,7 +478,7 @@ if ($result) {
         </div>
         <form id="updateProductForm" style="padding: 30px;">
             <input type="hidden" id="updateProductID" name="productID">
-            
+
             <div class="form-group" style="margin-bottom: 20px;">
                 <label for="updateBatchNumber" class="form-label">Batch Number</label>
                 <input type="text" id="updateBatchNumber" name="batchNumber" class="form-control" placeholder="Enter new batch number" required>
@@ -536,8 +536,16 @@ if ($result) {
 <script>
     var productFormData = null;
     var updateProductData = null;
-    
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
     $(document).ready(function() {
+        // Remove stale delegated handlers from previous AJAX loads of this page
+        $(document).off('.addProduct');
+
         // Initialize Select2 for parts with serial numbers
         $('.parts-serial-select').select2({
             placeholder: 'Select parts...',
@@ -546,10 +554,10 @@ if ($result) {
         });
 
         // Handle checkboxes for parts without serial numbers
-        $(document).on('change', '.parts-no-serial-checkbox', function() {
+        $(document).on('change.addProduct', '.parts-no-serial-checkbox', function() {
             const partName = $(this).data('part-name');
             const quantityDiv = $('#quantity_' + partName.replace(/\s+/g, '_'));
-            
+
             if ($(this).is(':checked')) {
                 quantityDiv.show();
             } else {
@@ -559,10 +567,10 @@ if ($result) {
 
         // ===== GAS SECTION HANDLERS =====
         // Handle gas checkbox click
-        $(document).on('change', '.gas-checkbox', function() {
+        $(document).on('change.addProduct', '.gas-checkbox', function() {
             const gasId = $(this).data('gas-id');
             const batchesDiv = $('#batches_gas_' + gasId);
-            
+
             if ($(this).is(':checked')) {
                 batchesDiv.slideDown(300);
             } else {
@@ -574,19 +582,23 @@ if ($result) {
         });
 
         // Handle gas batch checkbox selection (allows multiple batches per gas)
-        $(document).on('change', '.gas-batch-checkbox', function() {
+        $(document).on('change.addProduct', '.gas-batch-checkbox', function() {
             const gasId = $(this).data('gas-id');
             const batchId = $(this).data('batch-id');
             const batchName = $(this).data('batch-name');
             const available = parseFloat($(this).data('available'));
             const unitPrice = parseFloat($(this).data('unit-price'));
             const container = $('#batch_quantities_gas_' + gasId);
-            
+
             if ($(this).is(':checked')) {
+                // Skip if quantity block already exists for this batch
+                if (container.find('.gas-batch-qty-block[data-batch-id="' + batchId + '"]').length) {
+                    return;
+                }
                 // Add quantity input for this batch
                 const inputId = 'gas_qty_' + gasId + '_' + batchId;
                 const html = `
-                    <div data-batch-id="${batchId}" style="padding: 12px; background: #f9f9f9; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ff9800;">
+                    <div class="gas-batch-qty-block" data-batch-id="${batchId}" style="padding: 12px; background: #f9f9f9; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ff9800;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <strong style="color: #333;">${batchName}</strong>
                             <span style="font-size: 12px; color: #666;">Available: ${available} Units</span>
@@ -596,7 +608,7 @@ if ($result) {
                             <span style="font-size: 12px; color: #666; white-space: nowrap;">Max: ${available}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
-                            <span>Unit Price: <strong>RS ${unitPrice.toFixed(2)}</strong></span>
+                            <span>Assembling Cost: <strong>RS ${unitPrice.toFixed(2)}</strong></span>
                             <span>Total: <strong class="batch-total-${gasId}-${batchId}" style="color: #ff9800;">RS 0.00</strong></span>
                         </div>
                     </div>
@@ -605,9 +617,9 @@ if ($result) {
                 container.show();
             } else {
                 // Remove quantity input for this batch
-                container.find(`[data-batch-id="${batchId}"]`).fadeOut(200, function() {
+                container.find('.gas-batch-qty-block[data-batch-id="' + batchId + '"]').fadeOut(200, function() {
                     $(this).remove();
-                    if (container.find('[data-batch-id]').length === 0) {
+                    if (container.find('.gas-batch-qty-block').length === 0) {
                         container.hide();
                     }
                 });
@@ -615,18 +627,18 @@ if ($result) {
         });
 
         // Handle gas batch quantity input
-        $(document).on('input', '.gas-batch-qty', function() {
+        $(document).on('input.addProduct', '.gas-batch-qty', function() {
             const gasId = $(this).data('gas-id');
             const batchId = $(this).data('batch-id');
             const quantity = parseFloat($(this).val()) || 0;
             const unitPrice = parseFloat($(this).data('unit-price'));
             const available = parseFloat($(this).data('available'));
-            
+
             // Validate max quantity
             if (quantity > available) {
                 $(this).val(available);
             }
-            
+
             // Update total cost display
             const totalCost = quantity * unitPrice;
             $(`.batch-total-${gasId}-${batchId}`).text('RS ' + totalCost.toFixed(2));
@@ -640,14 +652,14 @@ if ($result) {
                 const gasId = $(this).data('gas-id');
                 const gasName = $(this).data('gas-name');
                 const container = $('#batch_quantities_gas_' + gasId);
-                
+
                 // Get all selected batches for this gas
-                container.find('[data-batch-id]').each(function() {
+                container.find('.gas-batch-qty-block').each(function() {
                     const batchId = $(this).data('batch-id');
                     const qtyInput = $(this).find('.gas-batch-qty');
                     const quantity = parseFloat(qtyInput.val()) || 0;
                     const unitPrice = parseFloat(qtyInput.data('unit-price'));
-                    
+
                     if (quantity > 0) {
                         gasData.push({
                             gas_id: gasId,
@@ -676,7 +688,7 @@ if ($result) {
             $('.parts-serial-select').each(function() {
                 const selectedValues = $(this).val();
                 const partName = $(this).data('part-name');
-                
+
                 if (selectedValues && selectedValues.length > 0) {
                     selectedValues.forEach(function(partID) {
                         const option = $(this).find('option[value="' + partID + '"]');
@@ -708,7 +720,7 @@ if ($result) {
         }
         $('#categoryID').on('change', function() {
             const selectedCategory = $(this).val();
-            
+
             // Filter models
             $('#modelID option').each(function() {
                 const modelCategory = $(this).data('category');
@@ -721,7 +733,7 @@ if ($result) {
                 }
             });
             $('#modelID').val('');
-            
+
             // Filter sizes
             $('#sizeID option').each(function() {
                 const sizeCategory = $(this).data('category');
@@ -747,7 +759,9 @@ if ($result) {
             $.ajax({
                 url: 'backend/getPartsByBrand.php',
                 type: 'GET',
-                data: { brandID: brandID },
+                data: {
+                    brandID: brandID
+                },
                 dataType: 'json',
                 success: function(res) {
                     if (!res.success) {
@@ -821,16 +835,11 @@ if ($result) {
             return String(text).replace(/[^a-zA-Z0-9_-]/g, '_');
         }
 
-        function escapeHtml(text) {
-            if (!text) return '';
-            return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-        }
-
         $('#addProductForm').on('submit', function(e) {
             e.preventDefault();
-            
+
             const quantity = parseInt($('#quantity').val());
-            
+
             if (quantity <= 0) {
                 Swal.fire({
                     icon: 'error',
@@ -839,30 +848,36 @@ if ($result) {
                 });
                 return;
             }
-            
+
             // Collect parts data
             const partsData = collectPartsData();
-            
+
             // Collect gas data
             const gasData = collectGasData();
-            
+
             // Store form data
             productFormData = $(this).serializeArray();
-            
+
             // Add parts data to productFormData
-            productFormData.push({ name: 'partsData', value: JSON.stringify(partsData) });
-            
+            productFormData.push({
+                name: 'partsData',
+                value: JSON.stringify(partsData)
+            });
+
             // Add gas data to productFormData
-            productFormData.push({ name: 'gasData', value: JSON.stringify(gasData) });
-            
+            productFormData.push({
+                name: 'gasData',
+                value: JSON.stringify(gasData)
+            });
+
             // Open serial numbers modal
             openSerialModal(quantity);
         });
-        
+
         // Handle serial numbers form submission
         $('#serialNumbersForm').on('submit', function(e) {
             e.preventDefault();
-            
+
             // Collect all serial numbers
             const serialNumbers = [];
             $('.serial-input').each(function() {
@@ -871,7 +886,7 @@ if ($result) {
                     serialNumbers.push(value);
                 }
             });
-            
+
             // Validate all serials are entered
             const expectedCount = parseInt($('#serialCountText').text());
             if (serialNumbers.length !== expectedCount) {
@@ -882,8 +897,8 @@ if ($result) {
                 });
                 return;
             }
-            
-            // Check for duplicates
+
+            // Check for duplicates within the form
             const uniqueSerials = new Set(serialNumbers);
             if (uniqueSerials.size !== serialNumbers.length) {
                 Swal.fire({
@@ -893,51 +908,76 @@ if ($result) {
                 });
                 return;
             }
-            
-            // Check if this is for new product or update
-            if (updateProductData !== null) {
-                // This is an update - directly save serial numbers
-                saveSerialNumbers(updateProductData.productID, updateProductData.batchNumber, serialNumbers);
-            } else {
-                // This is a new product - first save the product
-                $.ajax({
-                    url: 'backend/saveProduct.php',
-                    type: 'POST',
-                    data: $.param(productFormData),
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.success && response.productID) {
-                            // Now save serial numbers with batch number
-                            saveSerialNumbers(response.productID, response.batchNumber, serialNumbers);
-                        } else {
+
+            // Validate against database before any save operations
+            validateSerialNumbersInDb(serialNumbers, function(isValid, message) {
+                if (!isValid) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Duplicate Serial Number',
+                        text: message || 'One or more serial numbers already exist in the database'
+                    });
+                    return;
+                }
+
+                if (updateProductData !== null) {
+                    saveSerialNumbers(updateProductData.productID, updateProductData.batchNumber, serialNumbers);
+                } else {
+                    $.ajax({
+                        url: 'backend/saveProduct.php',
+                        type: 'POST',
+                        data: $.param(productFormData),
+                        dataType: 'json',
+                        success: function(response) {
+                            if (response.success && response.productID) {
+                                saveSerialNumbers(response.productID, response.batchNumber, serialNumbers);
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error!',
+                                    text: response.message || 'Failed to add product'
+                                });
+                                closeSerialModal();
+                            }
+                        },
+                        error: function() {
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error!',
-                                text: response.message || 'Failed to add product'
+                                text: 'Failed to add product'
                             });
                             closeSerialModal();
                         }
-                    },
-                    error: function() {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error!',
-                            text: 'Failed to add product'
-                        });
-                        closeSerialModal();
-                    }
-                });
-            }
+                    });
+                }
+            });
         });
     });
-    
+
+    function validateSerialNumbersInDb(serialNumbers, callback) {
+        $.ajax({
+            url: 'backend/validateProductSerials.php',
+            type: 'POST',
+            data: {
+                serialNumbers: JSON.stringify(serialNumbers)
+            },
+            dataType: 'json',
+            success: function(response) {
+                callback(response.success === true, response.message);
+            },
+            error: function() {
+                callback(false, 'Failed to validate serial numbers');
+            }
+        });
+    }
+
     function openSerialModal(quantity) {
         $('#serialCountText').text(quantity);
-        
+
         // Generate input fields
         const container = $('#serialInputsContainer');
         container.empty();
-        
+
         for (let i = 1; i <= quantity; i++) {
             const inputHtml = `
                 <div class="form-group">
@@ -947,11 +987,11 @@ if ($result) {
             `;
             container.append(inputHtml);
         }
-        
+
         $('#serialNumbersModal').fadeIn(300);
         $('body').css('overflow', 'hidden');
     }
-    
+
     function closeSerialModal() {
         $('#serialNumbersModal').fadeOut(300);
         $('body').css('overflow', 'auto');
@@ -959,24 +999,24 @@ if ($result) {
         productFormData = null;
         updateProductData = null;
     }
-    
+
     function showSuccessAlert(message) {
         $('#successAlertText').text(message);
         $('#successAlert').slideDown(300);
-        
+
         // Auto-hide after 5 seconds
         setTimeout(() => {
             $('#successAlert').slideUp(300);
         }, 5000);
     }
-    
+
     function openSerialModalForUpdate(quantity, batchNumber) {
         $('#serialCountText').text(quantity);
-        
+
         // Generate input fields
         const container = $('#serialInputsContainer');
         container.empty();
-        
+
         for (let i = 1; i <= quantity; i++) {
             const inputHtml = `
                 <div class="form-group">
@@ -986,14 +1026,24 @@ if ($result) {
             `;
             container.append(inputHtml);
         }
-        
+
         $('#serialNumbersModal').fadeIn(300);
         $('body').css('overflow', 'hidden');
     }
-    
+
+    function rollbackNewProduct(productID) {
+        $.ajax({
+            url: 'backend/deleteProduct.php',
+            type: 'POST',
+            data: { id: productID },
+            dataType: 'json'
+        });
+        closeSerialModal();
+    }
+
     function saveSerialNumbers(productID, batchNumber, serialNumbers) {
         const isUpdate = (updateProductData !== null);
-        
+
         // Extract parts and gas data from productFormData
         let partsData = {};
         let gasData = [];
@@ -1005,7 +1055,7 @@ if ($result) {
                 gasData = JSON.parse(productFormData[i].value);
             }
         }
-        
+
         $.ajax({
             url: 'backend/saveSerialNumbers.php',
             type: 'POST',
@@ -1025,56 +1075,56 @@ if ($result) {
                         loadContent('addProduct');
                     }, 2000);
                 } else {
-                    closeSerialModal();
+                    if (!isUpdate) {
+                        rollbackNewProduct(productID);
+                    }
                     Swal.fire({
-                        icon: 'warning',
-                        title: 'Partial Success',
-                        text: (isUpdate ? 'Product updated but' : 'Product saved but') + ' some operations failed: ' + response.message
-                    }).then(() => {
-                        loadContent('addProduct');
+                        icon: 'error',
+                        title: 'Error!',
+                        text: response.message || 'Failed to save serial numbers. No parts or gases were issued.'
                     });
                 }
             },
             error: function() {
-                closeSerialModal();
+                if (!isUpdate) {
+                    rollbackNewProduct(productID);
+                }
                 Swal.fire({
-                    icon: 'warning',
-                    title: 'Partial Success',
-                    text: (isUpdate ? 'Product updated but' : 'Product saved but') + ' failed to complete all operations'
-                }).then(() => {
-                    loadContent('addProduct');
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'Failed to save serial numbers. No parts or gases were issued.'
                 });
             }
         });
     }
-    
+
     function openUpdateModal(product) {
         $('#updateProductID').val(product.productID);
         $('#updateProductName').text(product.productName);
         $('#currentQuantity').text(product.quantity);
         $('#currentCost').text('RS ' + parseFloat(product.cost || 0).toFixed(2));
-        
+
         // Clear form
         $('#updateBatchNumber').val('');
         $('#updateQuantity').val('');
         $('#updateCost').val('');
-        
+
         $('#updateProductModal').fadeIn(300);
         $('body').css('overflow', 'hidden');
     }
-    
+
     function closeUpdateModal() {
         $('#updateProductModal').fadeOut(300);
         $('body').css('overflow', 'auto');
         $('#updateProductForm')[0].reset();
     }
-    
+
     // Handle update form submission
     $('#updateProductForm').on('submit', function(e) {
         e.preventDefault();
-        
+
         const formData = $(this).serialize();
-        
+
         $.ajax({
             url: 'backend/updateProductBatch.php',
             type: 'POST',
@@ -1107,7 +1157,7 @@ if ($result) {
             }
         });
     });
-    
+
     function deleteProduct(id) {
         Swal.fire({
             title: 'Are you sure?',
@@ -1216,11 +1266,81 @@ if ($result) {
                     <p style="margin: 0; padding: 12px; background: white; border-radius: 8px; min-height: 80px; font-weight: 500; color: #333;">${product.description || 'No description available'}</p>
                 </div>
             </div>
+            <div style="background: #f9f9f9; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0;">
+                <h4 style="margin: 0 0 15px 0; color: #667eea; font-size: 16px;">🏷️ Serial Numbers</h4>
+                <div id="productSerialsList">
+                    <p style="color: #666; margin: 0; text-align: center;">Loading serial numbers...</p>
+                </div>
+            </div>
         `;
-        
+
         $('#productDetailsContent').html(detailsHtml);
         $('#viewProductModal').fadeIn(300);
         $('body').css('overflow', 'hidden');
+
+        $.ajax({
+            url: 'backend/getProductSerials.php',
+            type: 'GET',
+            data: { productID: product.productID },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    $('#productSerialsList').html(renderProductSerials(response.data));
+                } else {
+                    $('#productSerialsList').html('<p style="color: #e53935; margin: 0; text-align: center;">' + escapeHtml(response.message || 'Failed to load serial numbers') + '</p>');
+                }
+            },
+            error: function() {
+                $('#productSerialsList').html('<p style="color: #e53935; margin: 0; text-align: center;">Failed to load serial numbers</p>');
+            }
+        });
+    }
+
+    function renderProductSerials(serials) {
+        if (!serials || serials.length === 0) {
+            return '<p style="color: #666; margin: 0; text-align: center;">No serial numbers found for this product</p>';
+        }
+
+        const statusColors = {
+            available: { bg: '#e8f5e9', color: '#2e7d32' },
+            issued: { bg: '#e3f2fd', color: '#1565c0' },
+            damaged: { bg: '#ffebee', color: '#c62828' }
+        };
+
+        let html = `
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
+                    <thead>
+                        <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                            <th style="padding: 12px; text-align: left;">#</th>
+                            <th style="padding: 12px; text-align: left;">Serial Number</th>
+                            <th style="padding: 12px; text-align: left;">Batch</th>
+                            <th style="padding: 12px; text-align: center;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        serials.forEach(function(serial, index) {
+            const status = (serial.status || 'available').toLowerCase();
+            const badge = statusColors[status] || { bg: '#f5f5f5', color: '#666' };
+
+            html += `
+                <tr style="border-bottom: 1px solid #f0f0f0;">
+                    <td style="padding: 12px; color: #666;">${index + 1}</td>
+                    <td style="padding: 12px;">
+                        <code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 14px;">${escapeHtml(serial.serialNumber)}</code>
+                    </td>
+                    <td style="padding: 12px; color: #333;">${escapeHtml(serial.batchNumber || 'N/A')}</td>
+                    <td style="padding: 12px; text-align: center;">
+                        <span style="background: ${badge.bg}; color: ${badge.color}; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: capitalize;">${escapeHtml(status)}</span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table></div>';
+        return html;
     }
 
     function closeViewModal() {
@@ -1239,13 +1359,15 @@ if ($result) {
     $(document).on('click', '#viewProductModal .form-container', function(e) {
         e.stopPropagation();
     });
-    
+
     // Batch Logs Modal Functions
     function openBatchLogsModal(productID) {
         $.ajax({
             url: 'backend/getBatchLogs.php',
             type: 'GET',
-            data: { productID: productID },
+            data: {
+                productID: productID
+            },
             dataType: 'json',
             success: function(response) {
                 if (response.success) {
@@ -1267,7 +1389,7 @@ if ($result) {
             }
         });
     }
-    
+
     function displayBatchLogs(batches, totals) {
         let html = `
             <div style="overflow-x: auto;">
@@ -1284,7 +1406,7 @@ if ($result) {
                     </thead>
                     <tbody>
         `;
-        
+
         if (batches.length === 0) {
             html += `
                 <tr>
@@ -1307,7 +1429,7 @@ if ($result) {
                 `;
             });
         }
-        
+
         html += `
                     </tbody>
                     <tfoot>
@@ -1322,25 +1444,25 @@ if ($result) {
                 </table>
             </div>
         `;
-        
+
         $('#batchLogsContent').html(html);
         $('#batchLogsModal').fadeIn(300);
         $('body').css('overflow', 'hidden');
     }
-    
+
     function closeBatchLogsModal() {
         $('#batchLogsModal').fadeOut(300);
         $('body').css('overflow', 'auto');
         $('#batchLogsContent').empty();
     }
-    
+
     // Close batch logs modal when clicking outside
     $(document).on('click', '#batchLogsModal', function(e) {
         if (e.target.id === 'batchLogsModal') {
             closeBatchLogsModal();
         }
     });
-    
+
     // Prevent modal close when clicking inside the content
     $(document).on('click', '#batchLogsModal .form-container', function(e) {
         e.stopPropagation();

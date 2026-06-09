@@ -43,7 +43,7 @@ while ($row = $res->fetch_assoc()) {
             $partsWithSerial[$partName] = $serialParts;
         }
     } else {
-        $noSerialCheck = $conn->prepare("SELECT COUNT(*) as count FROM parts WHERE partName = ? AND brandID = ? AND serialNumber IS NULL AND status = 'available'");
+        $noSerialCheck = $conn->prepare("SELECT SUM(CASE WHEN quantity > 0 THEN quantity ELSE 1 END) as count FROM parts WHERE partName = ? AND brandID = ? AND serialNumber IS NULL AND status = 'available'");
         $noSerialCheck->bind_param('si', $partName, $brandID);
         $noSerialCheck->execute();
         $noCount = $noSerialCheck->get_result()->fetch_assoc();

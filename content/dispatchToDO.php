@@ -714,9 +714,8 @@ if (isset($adminRole) && $adminRole === 'user') {
                         icon: 'success',
                         title: 'Success!',
                         text: 'Dispatch created successfully!',
-                        showCancelButton: true,
+                        showCancelButton: false,
                         confirmButtonText: 'Create New',
-                        cancelButtonText: 'Cancel'
                     }).then((result) => {
                         if (result.isConfirmed) {
                             // Reload the section so user can create a new dispatch

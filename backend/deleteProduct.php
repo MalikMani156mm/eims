@@ -12,17 +12,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     try {
+        $conn->begin_transaction();
+
+        $batchStmt = $conn->prepare("DELETE FROM product_batch WHERE productID = ?");
+        $batchStmt->bind_param("i", $productID);
+        $batchStmt->execute();
+        $batchStmt->close();
+
         $stmt = $conn->prepare("DELETE FROM products WHERE productID = ?");
         $stmt->bind_param("i", $productID);
         
-        if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Product deleted successfully']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to delete product']);
+        if (!$stmt->execute()) {
+            throw new Exception('Failed to delete product');
         }
         
         $stmt->close();
+        $conn->commit();
+
+        echo json_encode(['success' => true, 'message' => 'Product deleted successfully']);
     } catch (Exception $e) {
+        $conn->rollback();
         echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }

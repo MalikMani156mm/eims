@@ -13,6 +13,18 @@ if ($regionStmt) {
     $regionStmt->close();
 }
 
+// Get all vendors for dropdown
+$vendors = [];
+$vendorStmt = $conn->prepare("SELECT vendorID, vendorName FROM vendors ORDER BY vendorName ASC");
+if ($vendorStmt) {
+    $vendorStmt->execute();
+    $vendorRes = $vendorStmt->get_result();
+    while ($row = $vendorRes->fetch_assoc()) {
+        $vendors[] = $row;
+    }
+    $vendorStmt->close();
+}
+
 // Fetch all gas batches with related information
 $gases = [];
 $result = $conn->query("
@@ -25,13 +37,20 @@ $result = $conn->query("
         gb.available,
         gb.unit_price,
         gb.total_price,
+        gb.paid_price,
+        gb.pending_price,
+        gb.vendorID as batch_vendorID,
         gb.createdAt,
         gm.gas_name,
         gm.quantity as total_quantity,
         gm.unit_price as avg_unit_price,
+        gm.paid_price as master_paid_price,
+        gm.pending_price as master_pending_price,
+        v.vendorName,
         r.regionName
     FROM gas_batch_details gb
     LEFT JOIN gas_master gm ON gb.gas_id = gm.gas_id
+    LEFT JOIN vendors v ON gb.vendorID = v.vendorID
     LEFT JOIN regions r ON gb.regionID = r.regionID
     ORDER BY gb.batch_id DESC
 ");
@@ -67,6 +86,20 @@ if ($result) {
         <div class="row">
             <div class="col-md-6">
                 <div class="mb-3">
+                    <label for="vendorID" class="form-label">Vendor <span style="color: red;">*</span></label>
+                    <select class="form-control select2" id="vendorID" name="vendorID" required>
+                        <option value="">-- Select Vendor --</option>
+                        <?php foreach ($vendors as $vendor): ?>
+                            <option value="<?php echo $vendor['vendorID']; ?>">
+                                <?php echo htmlspecialchars($vendor['vendorName']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="mb-3">
                     <label for="regionID" class="form-label">Region <span style="color: red;">*</span></label>
                     <select class="form-control select2" id="regionID" name="regionID" required>
                         <option value="">-- Select Region --</option>
@@ -78,27 +111,43 @@ if ($result) {
                     </select>
                 </div>
             </div>
+        </div>
 
+        <div class="row">
             <div class="col-md-6">
                 <div class="mb-3">
                     <label for="quantity" class="form-label">Quantity (Kilos) <span style="color: red;">*</span></label>
                     <input type="number" class="form-control" id="quantity" name="quantity" placeholder="0.00" step="0.01" min="0" required>
                 </div>
             </div>
-        </div>
 
-        <div class="row">
             <div class="col-md-6">
                 <div class="mb-3">
                     <label for="unitPrice" class="form-label">Unit Price (per Kilo) <span style="color: red;">*</span></label>
                     <input type="number" class="form-control" id="unitPrice" name="unitPrice" placeholder="0.00" step="0.01" min="0" required>
                 </div>
             </div>
+        </div>
 
-            <div class="col-md-6">
+        <div class="row">
+            <div class="col-md-4">
                 <div class="mb-3">
                     <label for="totalPrice" class="form-label">Total Price (Auto Calculated)</label>
                     <input type="number" class="form-control" id="totalPrice" name="totalPrice" placeholder="0.00" step="0.01" readonly style="background-color: #f5f5f5;">
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label for="paidPrice" class="form-label">Paid Price <span style="color: red;">*</span></label>
+                    <input type="number" class="form-control" id="paidPrice" name="paidPrice" placeholder="0.00" step="0.01" min="0" required>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label for="pendingPrice" class="form-label">Pending Price (Auto Calculated)</label>
+                    <input type="number" class="form-control" id="pendingPrice" name="pendingPrice" placeholder="0.00" step="0.01" readonly style="background-color: #f5f5f5;">
                 </div>
             </div>
         </div>
@@ -120,6 +169,7 @@ if ($result) {
                     <th>#</th>
                     <th>Gas Name</th>
                     <th>Batch Name</th>
+                    <th>Vendor</th>
                     <th>Region</th>
                     <th>Batch Qty</th>
                     <th>Available</th>
@@ -139,6 +189,7 @@ if ($result) {
                     <td><?php echo $gas['serial']; ?></td>
                     <td><strong><?php echo htmlspecialchars($gas['gas_name']); ?></strong></td>
                     <td><?php echo htmlspecialchars($gas['batchName']); ?></td>
+                    <td><?php echo htmlspecialchars($gas['vendorName'] ?? 'N/A'); ?></td>
                     <td><?php echo htmlspecialchars($gas['regionName']); ?></td>
                     <td><?php echo number_format($gas['quantity'], 2); ?></td>
                     <td><span style="color: #11998e; font-weight: 600;"><?php echo number_format($gas['available'], 2); ?></span></td>
@@ -155,7 +206,7 @@ if ($result) {
                 <?php endforeach; ?>
                 <?php if (empty($gases)): ?>
                 <tr>
-                    <td colspan="10" style="text-align: center; padding: 20px; color: #999;">No gas batches found. Add one to get started!</td>
+                    <td colspan="11" style="text-align: center; padding: 20px; color: #999;">No gas batches found. Add one to get started!</td>
                 </tr>
                 <?php endif; ?>
             </tbody>
@@ -207,6 +258,33 @@ if ($result) {
                 <small style="color: #666; font-size: 12px;">Average unit price will be recalculated</small>
             </div>
 
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="updateVendorGas" class="form-label">Vendor</label>
+                <select id="updateVendorGas" name="vendorID" class="form-control" required>
+                    <option value="">-- Select Vendor --</option>
+                    <?php foreach ($vendors as $vendor): ?>
+                        <option value="<?php echo $vendor['vendorID']; ?>">
+                            <?php echo htmlspecialchars($vendor['vendorName']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="updateBatchTotalGas" class="form-label">Batch Total</label>
+                    <input type="number" id="updateBatchTotalGas" class="form-control" readonly style="background-color: #f5f5f5;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="updatePaidPriceGas" class="form-label">Paid Price</label>
+                    <input type="number" id="updatePaidPriceGas" name="paidPrice" class="form-control" placeholder="0.00" step="0.01" min="0" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="updatePendingPriceGas" class="form-label">Pending Price</label>
+                    <input type="number" id="updatePendingPriceGas" class="form-control" readonly style="background-color: #f5f5f5;">
+                </div>
+            </div>
+
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span style="color: #666;">Current Total Qty:</span>
@@ -236,19 +314,25 @@ if ($result) {
 <script>
 $(document).ready(function() {
     // Initialize Select2
-    $('#regionID').select2({
-        placeholder: "-- Select Region --",
+    $('#regionID, #vendorID').select2({
+        placeholder: "-- Select --",
         allowClear: false,
         width: '100%'
     });
 
-    // Calculate total price on input change
-    $('#quantity, #unitPrice').on('input', function() {
+    function updateGasPrices() {
         const quantity = parseFloat($('#quantity').val()) || 0;
         const unitPrice = parseFloat($('#unitPrice').val()) || 0;
-        const totalPrice = (quantity * unitPrice).toFixed(2);
-        $('#totalPrice').val(totalPrice);
-    });
+        const paidPrice = parseFloat($('#paidPrice').val()) || 0;
+        const totalPrice = quantity * unitPrice;
+        const pendingPrice = Math.max(0, totalPrice - paidPrice);
+
+        $('#totalPrice').val(totalPrice.toFixed(2));
+        $('#pendingPrice').val(pendingPrice.toFixed(2));
+    }
+
+    // Calculate total and pending price on input change
+    $('#quantity, #unitPrice, #paidPrice').on('input', updateGasPrices);
 
     // Form submission
     $('#addGasForm').on('submit', function(e) {
@@ -256,10 +340,13 @@ $(document).ready(function() {
 
         const gasName = $('#gasName').val().trim();
         const batchName = $('#batchName').val().trim();
+        const vendorID = $('#vendorID').val();
         const regionID = $('#regionID').val();
         const quantity = parseFloat($('#quantity').val());
         const unitPrice = parseFloat($('#unitPrice').val());
         const totalPrice = parseFloat($('#totalPrice').val());
+        const paidPrice = parseFloat($('#paidPrice').val());
+        const pendingPrice = parseFloat($('#pendingPrice').val());
 
         // Validation
         if (!gasName) {
@@ -272,6 +359,15 @@ $(document).ready(function() {
                 icon: 'error',
                 title: 'Error',
                 text: 'Batch name is required'
+            });
+            return;
+        }
+
+        if (!vendorID) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Please select a vendor'
             });
             return;
         }
@@ -303,6 +399,24 @@ $(document).ready(function() {
             return;
         }
 
+        if (isNaN(paidPrice) || paidPrice < 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Paid price must be 0 or greater'
+            });
+            return;
+        }
+
+        if (paidPrice > totalPrice) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Paid price cannot be greater than total price'
+            });
+            return;
+        }
+
         // Submit via AJAX
         $.ajax({
             url: 'backend/saveGas.php',
@@ -310,10 +424,13 @@ $(document).ready(function() {
             data: {
                 gasName: gasName,
                 batchName: batchName,
+                vendorID: vendorID,
                 regionID: regionID,
                 quantity: quantity,
                 unitPrice: unitPrice,
-                totalPrice: totalPrice
+                totalPrice: totalPrice,
+                paidPrice: paidPrice,
+                pendingPrice: pendingPrice
             },
             dataType: 'json',
             success: function(response) {
@@ -324,9 +441,9 @@ $(document).ready(function() {
                         text: response.message || 'Gas added successfully',
                         timer: 2000,
                         showConfirmButton: false
+                    }).then(() => {
+                        loadContent('addGas');
                     });
-                    $('#addGasForm')[0].reset();
-                    $('#totalPrice').val('0.00');
                 } else {
                     Swal.fire({
                         icon: 'error',
@@ -376,7 +493,11 @@ $(document).ready(function() {
                     </div>
                     <div>
                         <p style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">Region</p>
-                        <p style="margin: 0; font-size: 18px; font-weight: 600;">${gas.regionName}</p>
+                        <p style="margin: 0; font-size: 18px; font-weight: 600;">${gas.regionName || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">Vendor</p>
+                        <p style="margin: 0; font-size: 18px; font-weight: 600;">${gas.vendorName || 'N/A'}</p>
                     </div>
                     <div>
                         <p style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">Available Qty</p>
@@ -405,9 +526,19 @@ $(document).ready(function() {
                 </div>
             </div>
             <div style="margin-top: 15px;">
-                <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 15px; border-radius: 8px; color: white;">
-                    <p style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">Batch Total Price</p>
-                    <p style="margin: 0; font-size: 20px; font-weight: 600;">RS ${parseFloat(gas.total_price).toFixed(2)}</p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                    <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 15px; border-radius: 8px; color: white;">
+                        <p style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">Batch Total Price</p>
+                        <p style="margin: 0; font-size: 18px; font-weight: 600;">RS ${parseFloat(gas.total_price).toFixed(2)}</p>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 8px; color: white;">
+                        <p style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">Paid Price</p>
+                        <p style="margin: 0; font-size: 18px; font-weight: 600;">RS ${parseFloat(gas.paid_price || 0).toFixed(2)}</p>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 15px; border-radius: 8px; color: white;">
+                        <p style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">Batch Pending</p>
+                        <p style="margin: 0; font-size: 18px; font-weight: 600;">RS ${parseFloat(gas.pending_price || 0).toFixed(2)}</p>
+                    </div>
                 </div>
             </div>
         `;
@@ -422,6 +553,20 @@ $(document).ready(function() {
         $('body').css('overflow', 'auto');
     };
 
+    // Calculate update batch prices
+    function updateBatchPaymentFields() {
+        const quantity = parseFloat($('#updateQuantityGas').val()) || 0;
+        const unitPrice = parseFloat($('#updateUnitPriceGas').val()) || 0;
+        const paidPrice = parseFloat($('#updatePaidPriceGas').val()) || 0;
+        const batchTotal = quantity * unitPrice;
+        const pendingPrice = Math.max(0, batchTotal - paidPrice);
+
+        $('#updateBatchTotalGas').val(batchTotal.toFixed(2));
+        $('#updatePendingPriceGas').val(pendingPrice.toFixed(2));
+    }
+
+    $('#updateQuantityGas, #updateUnitPriceGas, #updatePaidPriceGas').on('input', updateBatchPaymentFields);
+
     // Open Update Gas Modal
     window.openUpdateGasModal = function(gas) {
         $('#updateGasId').val(gas.gas_id);
@@ -429,6 +574,10 @@ $(document).ready(function() {
         $('#updateBatchNameGas').val('');
         $('#updateQuantityGas').val('');
         $('#updateUnitPriceGas').val('');
+        $('#updateVendorGas').val('');
+        $('#updatePaidPriceGas').val('');
+        $('#updateBatchTotalGas').val('0.00');
+        $('#updatePendingPriceGas').val('0.00');
         
         $('#currentTotalQuantity').text(parseFloat(gas.total_quantity).toFixed(2));
         $('#currentAvgPrice').text(parseFloat(gas.avg_unit_price).toFixed(2));
@@ -450,14 +599,35 @@ $(document).ready(function() {
         
         const gasId = $('#updateGasId').val();
         const batchName = $('#updateBatchNameGas').val().trim();
+        const vendorID = $('#updateVendorGas').val();
         const quantity = parseFloat($('#updateQuantityGas').val());
         const unitPrice = parseFloat($('#updateUnitPriceGas').val());
+        const paidPrice = parseFloat($('#updatePaidPriceGas').val());
+        const batchTotal = parseFloat($('#updateBatchTotalGas').val());
         
-        if (!batchName || quantity <= 0 || unitPrice <= 0) {
+        if (!batchName || !vendorID || quantity <= 0 || unitPrice <= 0) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Please fill all fields with valid values'
+                text: 'Please fill all required fields with valid values'
+            });
+            return;
+        }
+
+        if (isNaN(paidPrice) || paidPrice < 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Paid price must be 0 or greater'
+            });
+            return;
+        }
+
+        if (paidPrice > batchTotal) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Paid price cannot be greater than batch total'
             });
             return;
         }
@@ -468,13 +638,15 @@ $(document).ready(function() {
             data: {
                 gas_id: gasId,
                 batchName: batchName,
+                vendorID: vendorID,
                 quantity: quantity,
-                unitPrice: unitPrice
+                unitPrice: unitPrice,
+                paidPrice: paidPrice
             },
             dataType: 'json',
             success: function(response) {
                 if (response.success) {
-                    closeUpdateGasModal(); // Close modal first
+                    closeUpdateGasModal();
                     Swal.fire({
                         icon: 'success',
                         title: 'Success!',
@@ -482,7 +654,7 @@ $(document).ready(function() {
                         timer: 2000,
                         showConfirmButton: false
                     }).then(() => {
-                        location.reload();
+                        loadContent('addGas');
                     });
                 } else {
                     Swal.fire({

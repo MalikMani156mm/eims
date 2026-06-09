@@ -41,14 +41,14 @@ if ($resOff) {
 <div class="container">
     <!-- Add Officer Form -->
     <div class="form-container">
-        <h2>Add Distributing Officer</h2>
+        <h2>Add Warehouse</h2>
         
         <form id="addOfficerForm">
             <!-- Row 1: Name, CNIC -->
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                 <div class="form-group">
-                    <label for="name" class="form-label">Full Name</label>
-                    <input type="text" id="name" name="name" class="form-control" placeholder="Enter full name" required>
+                    <label for="name" class="form-label">Company / Concerned Person Name</label>
+                    <input type="text" id="name" name="name" class="form-control" placeholder="Enter name here" required>
                 </div>
 
                 <div class="form-group">
@@ -88,7 +88,7 @@ if ($resOff) {
             </div>
 
             <div style="text-align: center;">
-                <button type="submit" class="btn btn-primary">Add Officer</button>
+                <button type="submit" class="btn btn-primary">Submit</button>
                 <button type="reset" class="btn btn-secondary">Clear</button>
             </div>
         </form>
@@ -96,7 +96,7 @@ if ($resOff) {
 
     <!-- Display Officers -->
     <div class="packages-table">
-        <h3>All Distributing Officers</h3>
+        <h3>All Warhouse Data</h3>
         
         <div class="table-responsive">
             <table class="table">
@@ -177,7 +177,7 @@ if ($resOff) {
 <div id="viewOfficerModal" class="modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); overflow: auto;">
     <div class="form-container" style="max-width: 600px; max-height: 90vh; overflow-y: auto; margin: 2% auto; position: relative; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
         <div style="top: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 16px 16px 0 0; z-index: 10; color: white;">
-            <h2 style="margin: 0;">Officer Details</h2>
+            <h2 style="margin: 0;"> Details</h2>
             <button onclick="closeViewModal()" style="position: absolute; right: 20px; top: 20px; background: #ff4757; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; font-size: 20px;">&times;</button>
         </div>
         <div id="officerDetailsContent" style="padding: 20px;">
@@ -190,7 +190,7 @@ if ($resOff) {
 <div id="editOfficerModal" class="modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); overflow: auto;">
     <div class="form-container" style="max-width: 600px; max-height: 90vh; overflow-y: auto; margin: 2% auto; position: relative; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
         <div style="top: 0; background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%); padding: 20px; border-radius: 16px 16px 0 0; z-index: 10; color: white;">
-            <h2 style="margin: 0;">Edit Officer</h2>
+            <h2 style="margin: 0;">Edit</h2>
             <button onclick="closeEditModal()" style="position: absolute; right: 20px; top: 20px; background: #ff4757; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; font-size: 20px;">&times;</button>
         </div>
         <div style="padding: 20px;">
@@ -238,7 +238,7 @@ if ($resOff) {
                 </div>
 
                 <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">
-                    <button type="submit" class="btn btn-success" style="padding: 12px 30px;">Update Officer</button>
+                    <button type="submit" class="btn btn-success" style="padding: 12px 30px;">Update</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="padding: 12px 30px;">Cancel</button>
                 </div>
             </form>

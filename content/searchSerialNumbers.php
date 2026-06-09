@@ -29,6 +29,14 @@ require __DIR__ . '/../db.php';
                         style="flex:1; padding:12px 16px; border-radius:8px; border:none; box-shadow: 0 4px 12px rgba(0,0,0,0.06); font-size:14px;">
                     <button onclick="searchPartSerialNumber()" style="padding:12px 20px; background:#fff; color:#8e44ad; border:none; border-radius:8px; font-weight:700;">Search Part</button>
                 </div>
+                <div style="margin-top: 16px; text-align: center;">
+                    <button onclick="showAllProductSerials()"
+                        style="padding: 12px 24px; background: rgba(255,255,255,0.15); color: white; border: 2px solid white; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 15px; transition: all 0.3s;"
+                        onmouseover="this.style.background='white'; this.style.color='#667eea'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.color='white'">
+                        📋 View All Product Serial Numbers
+                    </button>
+                </div>
                 <div style="margin-top: 12px; color: white; opacity: 0.9; font-size: 14px;">
                     💡 Tip: Press Enter after typing to search quickly
                 </div>
@@ -276,7 +284,7 @@ require __DIR__ . '/../db.php';
 
                 <!-- Action Buttons -->
                 <div style="display: flex; gap: 12px; justify-content: center; margin-top: 30px;">
-                    <button onclick="$('#searchSerial').val('').focus(); $('#resultsContainer').hide(); $('#initialState').show();" 
+                    <button onclick="resetSearchPage()" 
                         style="padding: 12px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
                         New Search
                     </button>
@@ -418,6 +426,141 @@ require __DIR__ . '/../db.php';
         }, 'json').fail(function() {
             // ignore failures silently
         });
+    }
+
+    function showAllProductSerials() {
+        $('#initialState').hide();
+        $('#resultsContainer').hide();
+        $('#noResults').hide();
+        $('#loadingIndicator').show();
+
+        $.ajax({
+            url: 'backend/getAllProductSerials.php',
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                $('#loadingIndicator').hide();
+
+                if (response.success) {
+                    displayAllSerials(response.data || [], response.total || 0);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Load Failed',
+                        text: response.message || 'Failed to load serial numbers'
+                    });
+                    $('#initialState').show();
+                }
+            },
+            error: function() {
+                $('#loadingIndicator').hide();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Load Failed',
+                    text: 'An error occurred while loading serial numbers'
+                });
+                $('#initialState').show();
+            }
+        });
+    }
+
+    function displayAllSerials(serials, total) {
+        const statusColors = {
+            available: { bg: '#e8f5e9', color: '#2e7d32', label: 'Available' },
+            issued: { bg: '#e3f2fd', color: '#1565c0', label: 'Sell' },
+            damaged: { bg: '#ffebee', color: '#c62828', label: 'Damaged' }
+        };
+
+        let rowsHtml = '';
+
+        if (!serials.length) {
+            rowsHtml = `
+                <tr>
+                    <td colspan="8" style="padding: 40px; text-align: center; color: #999;">No serial numbers found in the system</td>
+                </tr>
+            `;
+        } else {
+            serials.forEach(function(item, index) {
+                const status = (item.status || 'available').toLowerCase();
+                const badge = statusColors[status] || { bg: '#f5f5f5', color: '#666', label: status };
+
+                rowsHtml += `
+                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                        <td style="padding: 12px; color: #666;">${index + 1}</td>
+                        <td style="padding: 12px;">
+                            <code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 14px; cursor: pointer;"
+                                onclick="$('#searchSerial').val('${escapeHtmlAttr(item.serialNumber)}'); searchSerialNumber();"
+                                title="Click to search this serial">${escapeHtml(item.serialNumber)}</code>
+                        </td>
+                        <td style="padding: 12px; color: #333;">${item.productID || 'N/A'}</td>
+                        <td style="padding: 12px; color: #333;">${escapeHtml(item.productName || 'N/A')}</td>
+                        <td style="padding: 12px; color: #333;">${escapeHtml(item.batchNumber || 'N/A')}</td>
+                        <td style="padding: 12px; color: #333;">${escapeHtml(item.modelName || 'N/A')}</td>
+                        <td style="padding: 12px; color: #333;">${escapeHtml(item.regionName || 'N/A')}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            <span style="background: ${badge.bg}; color: ${badge.color}; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">${badge.label}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        const html = `
+            <div style="background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 24px;">
+                    <div>
+                        <h3 style="margin: 0 0 8px 0; color: #667eea;">📋 All Product Serial Numbers</h3>
+                        <p style="margin: 0; color: #666; font-size: 14px;">Total records: <strong>${total}</strong></p>
+                    </div>
+                    <button onclick="resetSearchPage()"
+                        style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                        Back to Search
+                    </button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
+                        <thead>
+                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <th style="padding: 12px; text-align: left;">#</th>
+                                <th style="padding: 12px; text-align: left;">Serial Number</th>
+                                <th style="padding: 12px; text-align: left;">Product ID</th>
+                                <th style="padding: 12px; text-align: left;">Product Name</th>
+                                <th style="padding: 12px; text-align: left;">Batch</th>
+                                <th style="padding: 12px; text-align: left;">Model</th>
+                                <th style="padding: 12px; text-align: left;">Region</th>
+                                <th style="padding: 12px; text-align: center;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        $('#resultsContainer').html(html).show();
+    }
+
+    function resetSearchPage() {
+        $('#searchSerial').val('').focus();
+        $('#searchPartSerial').val('');
+        $('#resultsContainer').hide().empty();
+        $('#noResults').hide();
+        $('#loadingIndicator').hide();
+        $('#initialState').show();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function escapeHtmlAttr(text) {
+        return escapeHtml(text).replace(/'/g, '&#039;');
     }
 
     function searchPartSerialNumber() {

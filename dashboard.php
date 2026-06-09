@@ -145,36 +145,64 @@ if ($haveMultipleRegions === 1) {
                     <span class="icon">🔍</span>
                     <span>Search Serial Numbers</span>
                 </div>
+                <div class="menu-item active" onclick="loadContent('addProduct')">
+                    <span class="icon">📤</span>
+                    <span>Issued for Assembling</span>
+                </div>
+                <div class="menu-item active" onclick="loadContent('assemblingLogs')">
+                    <span class="icon">📝</span>
+                    <span>Assembling Logs</span>
+                </div>
                 <?php if ($adminRole === 'superadmin'): ?>
                     <div class="menu-item active" onclick="loadContent('doApproval')">
                         <span class="icon">✓</span>
-                        <span>Add DO Approval</span>
+                        <span>Warehouse Approval</span>
                         <span class="badge-count" id="doApprovalCount" style="display: none; margin-left:8px; background:#d9534f;
                         color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;">
                         </span>
                     </div>
                     <div class="menu-item active" onclick="loadContent('dispatchDOApproval')">
                         <span class="icon">✓</span>
-                        <span>Dispatch DO Approval</span>
+                        <span>Dispatch Approval</span>
                         <span class="badge-count" id="dispatchDOApprovalCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
+                    </div>
+                    <div class="menu-item active" onclick="loadContent('addGas')">
+                        <!-- <span class="icon">📦</span> -->
+                        <span class="icon">➕</span>
+                        <span>Add Gas</span>
+                    </div>
+                    <div class="menu-item active" onclick="loadContent('addParts')">
+                        <!-- <span class="icon">📦</span> -->
+                        <span class="icon">➕</span>
+                        <span>Add Parts</span>
                     </div>
                 <?php endif ?>
                 <?php if ($adminRole === 'admin'): ?>
                     <div class="menu-item active" onclick="loadContent('dispatchDOApprovalAdmin')">
                         <span class="icon">✓</span>
-                        <span>Dispatch DO Approval</span>
+                        <span>Dispatch Approval</span>
                         <span class="badge-count" id="dispatchDOApprovalAdminCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
+                    </div>
+                    <div class="menu-item active" onclick="loadContent('addParts')">
+                        <!-- <span class="icon">📦</span> -->
+                        <span class="icon">➕</span>
+                        <span>Add Parts</span>
+                    </div>
+                    <div class="menu-item active" onclick="loadContent('addGas')">
+                        <!-- <span class="icon">📦</span> -->
+                        <span class="icon">➕</span>
+                        <span>Add Gas</span>
                     </div>
                 <?php endif ?>
                 <div class="menu-item" onclick="toggleDropdown(this)">
                     <span class="icon">🚚</span>
-                    <span>Distributing Officers</span>
+                    <span>Dispatches Logs</span>
                     <span class="dropdown-arrow">▼</span>
                 </div>
                 <div class="submenu">
                     <div class="submenu-item" onclick="loadContent('dispatchToDO')">
                         <span class="icon">📤</span>
-                        <span>Dispatch to DO</span>
+                        <span>Dispatch to Warehous</span>
                     </div>
                     <div class="submenu-item" onclick="loadContent('doDispatchHistory')">
                         <span class="icon">📚</span>
@@ -182,84 +210,43 @@ if ($haveMultipleRegions === 1) {
                     </div>
                     <div class="submenu-item" onclick="loadContent('doPending')">
                         <span class="icon">⏳</span>
-                        <span>DO Pending</span>
+                        <span>Pendings</span>
                         <span class="badge-count" id="overdueCountDO" style="display: none;"></span>
                     </div>
                 </div>
-                <!-- <div class="menu-item" onclick="toggleDropdown(this)">
-                    <span class="icon">📒</span>
-                    <span>Ledgers</span>
-                    <span class="dropdown-arrow">▼</span>
-                </div>
-                <div class="submenu">
-                    <div class="submenu-item" onclick="loadContent('dispatchToLedger')">
-                        <span class="icon">📤</span>
-                        <span>Dispatch to Ledgers</span>
-                    </div>
-                    <div class="submenu-item" onclick="loadContent('ledgersDispatchHistory')">
-                        <span class="icon">📚</span>
-                        <span>Ledgers Dispatch History</span>
-                    </div>
-                    <div class="submenu-item" onclick="loadContent('ledgersPending')">
-                        <span class="icon">⏳</span>
-                        <span>Ledgers Pending</span>
-                        <span class="badge-count" id="overdueCountLedger" style="display: none;"></span>
-                    </div>
-                </div> -->
                 <div class="menu-item" onclick="toggleDropdown(this)">
-                    <span class="icon">➕</span>
-                    <span>Add New</span>
+                    <span class="icon">⚙️</span>
+                    <span>Configure</span>
                     <span class="dropdown-arrow">▼</span>
                 </div>
                 <div class="submenu">
-                    <div class="submenu-item" onclick="loadContent('addBrand')">
+                    <?php if ($adminRole === 'superadmin'): ?>
+                        <div class="submenu-item" onclick="loadContent('addBrand')">
                             <!-- <span class="icon">🎨</span> -->
                             <span class="icon">➕</span>
                             <span>Add Brands</span>
-                        </div>
-                    <div class="submenu-item" onclick="loadContent('addProduct')">
-                        <!-- <span class="icon">📦</span> -->
-                        <span class="icon">➕</span>
-                        <span>Add Air Conditioner</span>
-                    </div>
-                    <?php if ($adminRole === 'admin' || $regionID === '4'): ?>
-                        <div class="submenu-item" onclick="loadContent('addParts')">
-                            <!-- <span class="icon">📦</span> -->
-                            <span class="icon">➕</span>
-                            <span>Add Parts</span>
-                        </div>
-                        <div class="submenu-item" onclick="loadContent('addGas')">
-                            <!-- <span class="icon">📦</span> -->
-                            <span class="icon">➕</span>
-                            <span>Add Gas</span>
-                        </div>
-                    <?php endif ?>
-                    <?php if ($adminRole === 'superadmin'): ?>
-                        <div class="submenu-item" onclick="loadContent('addGas')">
-                            <!-- <span class="icon">📦</span> -->
-                            <span class="icon">➕</span>
-                            <span>Add Gas</span>
-                        </div>
-                        <div class="submenu-item" onclick="loadContent('addParts')">
-                            <!-- <span class="icon">📦</span> -->
-                            <span class="icon">➕</span>
-                            <span>Add Parts</span>
                         </div>
                         <div class="submenu-item" onclick="loadContent('addModel')">
                             <!-- <span class="icon">📦</span> -->
                             <span class="icon">➕</span>
                             <span>Add Model</span>
                         </div>
-                        <div class="submenu-item" onclick="loadContent('addColor')">
-                            <!-- <span class="icon">🎨</span> -->
-                            <span class="icon">➕</span>
-                            <span>Add Color</span>
-                        </div>
                         <div class="submenu-item" onclick="loadContent('addSize')">
                             <!-- <span class="icon">📏</span> -->
                             <span class="icon">➕</span>
                             <span>Add Tonnage</span>
                         </div>
+                        <div class="submenu-item" onclick="loadContent('addColor')">
+                            <!-- <span class="icon">🎨</span> -->
+                            <span class="icon">➕</span>
+                            <span>Add Color</span>
+                        </div>
+                        <div class="submenu-item" onclick="loadContent('addVendor')">
+                            <span class="icon">➕</span>
+                            <span>Add Vendor</span>
+                        </div>
+
+
                         <!-- <div class="submenu-item" onclick="loadContent('addCategory')">
                         <span class="icon">📁</span>
                         <span class="icon">➕</span>
@@ -268,16 +255,16 @@ if ($haveMultipleRegions === 1) {
                         <!-- <div class="submenu-item" onclick="loadContent('addRegion')">
                             <span class="icon">➕</span>
                             <span>Add Region</span>
-                        </div>
+                        </div>-->
                         <div class="submenu-item" onclick="loadContent('addUser')">
                             <span class="icon">➕</span>
                             <span>Add User</span>
-                        </div> -->
+                        </div>
                     <?php endif ?>
                     <div class="submenu-item" onclick="loadContent('addDistributingOfficer')">
                         <!-- <span class="icon">🌍</span> -->
                         <span class="icon">➕</span>
-                        <span>Add Distributing Officer</span>
+                        <span>Add Ware House</span>
                     </div>
                 </div>
             </div>

@@ -21,9 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 gb.available,
                 gb.unit_price,
                 gb.total_price,
+                gb.paid_price,
+                gb.pending_price,
                 gb.createdAt,
+                v.vendorName,
                 r.regionName
             FROM gas_batch_details gb
+            LEFT JOIN vendors v ON gb.vendorID = v.vendorID
             LEFT JOIN regions r ON gb.regionID = r.regionID
             WHERE gb.gas_id = ?
             ORDER BY gb.batch_id DESC

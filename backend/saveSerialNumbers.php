@@ -34,35 +34,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'message' => 'Invalid serial numbers format']);
         exit;
     }
+
+    $productBrandID = 0;
+    $productStmt = $conn->prepare("SELECT brandID FROM products WHERE productID = ? LIMIT 1");
+    $productStmt->bind_param("i", $productID);
+    $productStmt->execute();
+    $productResult = $productStmt->get_result();
+    if ($productRow = $productResult->fetch_assoc()) {
+        $productBrandID = intval($productRow['brandID']);
+    }
+    $productStmt->close();
+
+    if ($productBrandID <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Product brand could not be found']);
+        exit;
+    }
     
-    // Begin transaction
+    // Normalize and validate serial numbers before any database changes
+    $normalizedSerials = [];
+    foreach ($serialNumbers as $serialNumber) {
+        $serialNumber = trim((string) $serialNumber);
+        if ($serialNumber === '') {
+            continue;
+        }
+        $normalizedSerials[] = $serialNumber;
+    }
+
+    if (empty($normalizedSerials)) {
+        echo json_encode(['success' => false, 'message' => 'No valid serial numbers provided']);
+        exit;
+    }
+
+    if (count(array_unique($normalizedSerials)) !== count($normalizedSerials)) {
+        echo json_encode(['success' => false, 'message' => 'Duplicate serial numbers in your list. Each must be unique.']);
+        exit;
+    }
+
+    $dupCheckStmt = $conn->prepare("SELECT serialNumber FROM product_serials WHERE serialNumber = ? LIMIT 1");
+    if (!$dupCheckStmt) {
+        echo json_encode(['success' => false, 'message' => 'Database error']);
+        exit;
+    }
+
+    foreach ($normalizedSerials as $serialNumber) {
+        $dupCheckStmt->bind_param('s', $serialNumber);
+        $dupCheckStmt->execute();
+        $dupCheckStmt->store_result();
+        if ($dupCheckStmt->num_rows > 0) {
+            $dupCheckStmt->close();
+            echo json_encode([
+                'success' => false,
+                'message' => 'Serial number already exists in the database: ' . $serialNumber
+            ]);
+            exit;
+        }
+    }
+    $dupCheckStmt->close();
+
+    // Begin transaction — nothing is written until duplicate checks pass
     $conn->begin_transaction();
     
     try {
         $stmt = $conn->prepare("INSERT INTO product_serials (productID, serialNumber, batchNumber, status) VALUES (?, ?, ?, 'available')");
-        
-        $successCount = 0;
-        $failedSerials = [];
         $productSerial = null;
         
-        foreach ($serialNumbers as $serialNumber) {
-            $serialNumber = trim($serialNumber);
-            
-            if (empty($serialNumber)) {
-                continue;
-            }
-            
-            // Store the first serial as the product serial for issuing parts
+        foreach ($normalizedSerials as $serialNumber) {
             if ($productSerial === null) {
                 $productSerial = $serialNumber;
             }
             
             $stmt->bind_param("iss", $productID, $serialNumber, $batchNumber);
             
-            if ($stmt->execute()) {
-                $successCount++;
-            } else {
-                $failedSerials[] = $serialNumber;
+            if (!$stmt->execute()) {
+                throw new Exception('Failed to save serial number: ' . $serialNumber);
             }
         }
         
@@ -81,31 +125,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt->close();
         }
         
-        // Handle parts without serial numbers
+        // Handle parts without serial numbers. Production may still contain
+        // aggregate rows where one row represents multiple no-serial items, so
+        // consume only the requested quantity instead of marking the whole row.
         if (!empty($partsData['withoutSerial'])) {
             foreach ($partsData['withoutSerial'] as $part) {
                 $partName = $part['partName'];
                 $quantity = intval($part['quantity']);
-                
-                // Get the first $quantity available records without serial
-                $getStmt = $conn->prepare("SELECT partID FROM parts WHERE partName = ? AND serialNumber IS NULL AND status = 'available' ORDER BY partID ASC LIMIT ?");
-                $getStmt->bind_param("si", $partName, $quantity);
+
+                if ($quantity <= 0) {
+                    continue;
+                }
+
+                $getStmt = $conn->prepare("
+                    SELECT partID, regionID, batchName, brandID, quantity, used
+                    FROM parts
+                    WHERE partName = ?
+                      AND brandID = ?
+                      AND serialNumber IS NULL
+                      AND status = 'available'
+                    ORDER BY createdAt ASC, partID ASC
+                    FOR UPDATE
+                ");
+                $getStmt->bind_param("si", $partName, $productBrandID);
                 $getStmt->execute();
                 $result = $getStmt->get_result();
-                
-                $partIDs = [];
+
+                $rows = [];
+                $availableQuantity = 0;
                 while ($row = $result->fetch_assoc()) {
-                    $partIDs[] = intval($row['partID']);
+                    $rowQuantity = intval($row['quantity']);
+                    if ($rowQuantity <= 0) {
+                        $rowQuantity = 1;
+                    }
+
+                    $row['availableQuantity'] = $rowQuantity;
+                    $availableQuantity += $rowQuantity;
+                    $rows[] = $row;
                 }
                 $getStmt->close();
-                
-                // Update each part record
-                foreach ($partIDs as $partID) {
-                    $updateStmt = $conn->prepare("UPDATE parts SET status = 'used', used = 1, issuedToSerialNumber = ?, issuedDate = NOW() WHERE partID = ?");
-                    $updateStmt->bind_param("si", $productSerial, $partID);
-                    $updateStmt->execute();
-                    $updateStmt->close();
+
+                if ($availableQuantity < $quantity) {
+                    throw new Exception("Insufficient available quantity for part: $partName");
                 }
+
+                $remaining = $quantity;
+                $updateAvailableStmt = $conn->prepare("UPDATE parts SET quantity = ?, updatedAt = NOW() WHERE partID = ?");
+                $updateUsedStmt = $conn->prepare("UPDATE parts SET quantity = ?, used = ?, status = 'used', issuedToSerialNumber = ?, issuedDate = NOW(), updatedAt = NOW() WHERE partID = ?");
+                $insertUsedStmt = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, brandID, quantity, used, status, issuedToSerialNumber, issuedDate, createdAt, updatedAt) VALUES (?, NULL, ?, ?, ?, ?, ?, 'used', ?, NOW(), NOW(), NOW())");
+
+                foreach ($rows as $row) {
+                    if ($remaining <= 0) {
+                        break;
+                    }
+
+                    $partID = intval($row['partID']);
+                    $rowQuantity = intval($row['availableQuantity']);
+                    $useNow = min($rowQuantity, $remaining);
+                    $newAvailableQuantity = $rowQuantity - $useNow;
+                    $newUsedQuantity = intval($row['used']) + $useNow;
+
+                    if ($newAvailableQuantity > 0) {
+                        $updateAvailableStmt->bind_param("ii", $newAvailableQuantity, $partID);
+                        if (!$updateAvailableStmt->execute()) {
+                            throw new Exception("Failed to update available quantity for part: $partName");
+                        }
+
+                        $rowRegionID = intval($row['regionID']);
+                        $rowBatchName = $row['batchName'];
+                        $rowBrandID = intval($row['brandID']);
+                        $insertUsedStmt->bind_param("sisiiis", $partName, $rowRegionID, $rowBatchName, $rowBrandID, $useNow, $useNow, $productSerial);
+                        if (!$insertUsedStmt->execute()) {
+                            throw new Exception("Failed to log used quantity for part: $partName");
+                        }
+                    } else {
+                        $updateUsedStmt->bind_param("iisi", $useNow, $newUsedQuantity, $productSerial, $partID);
+                        if (!$updateUsedStmt->execute()) {
+                            throw new Exception("Failed to mark part as used: $partName");
+                        }
+                    }
+
+                    $remaining -= $useNow;
+                }
+
+                $updateAvailableStmt->close();
+                $updateUsedStmt->close();
+                $insertUsedStmt->close();
             }
         }
 
@@ -134,25 +239,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $gasLogStmt->close();
         }
         
-        // Commit if at least some serials succeeded
-        if ($successCount > 0) {
-            $conn->commit();
-            
-            if (empty($failedSerials)) {
-                echo json_encode([
-                    'success' => true, 
-                    'message' => "All $successCount serial numbers saved successfully for batch $batchNumber and parts/gases issued"
-                ]);
-            } else {
-                echo json_encode([
-                    'success' => true, 
-                    'message' => "$successCount serial numbers saved, " . count($failedSerials) . " failed (possibly duplicates), parts/gases issued"
-                ]);
-            }
-        } else {
-            $conn->rollback();
-            echo json_encode(['success' => false, 'message' => 'Failed to save any serial numbers']);
-        }
+        $conn->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => count($normalizedSerials) . " serial number(s) saved for batch $batchNumber and parts/gases issued"
+        ]);
         
     } catch (Exception $e) {
         $conn->rollback();
