@@ -167,7 +167,6 @@ foreach ($gases as $gas) {
     $gasGrouped[$name][] = $gas;
 }
 
-$totalCost = floatval($product['quantity']) * floatval($product['cost']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -260,8 +259,6 @@ $totalCost = floatval($product['quantity']) * floatval($product['cost']);
             <div><strong>Region:</strong> <?php echo h($product['regionName'] ?? 'N/A'); ?></div>
             <div><strong>Batch Number:</strong> <?php echo h($product['batchNumber']); ?></div>
             <div><strong>Quantity:</strong> <?php echo h($product['quantity']); ?></div>
-            <div><strong>Cost / Unit:</strong> RS <?php echo number_format(floatval($product['cost']), 2); ?></div>
-            <div><strong>Total Cost:</strong> RS <?php echo number_format($totalCost, 2); ?></div>
             <div><strong>Description:</strong> <?php echo h($product['description'] ?: 'N/A'); ?></div>
         </div>
     </div>

@@ -67,18 +67,6 @@ if ($result) {
                     </div>
                     <div style="font-size: 14px; opacity: 0.9;">Total Quantity</div>
                 </div>
-                <div>
-                    <div style="font-size: 32px; font-weight: bold;">
-                        RS <?php
-                        $totalCost = 0;
-                        foreach ($products as $p) {
-                            $totalCost += (intval($p['quantity']) * floatval($p['cost']));
-                        }
-                        echo number_format($totalCost, 2);
-                        ?>
-                    </div>
-                    <div style="font-size: 14px; opacity: 0.9;">Total Cost</div>
-                </div>
             </div>
         </div>
 
@@ -96,7 +84,6 @@ if ($result) {
                         <th>Region</th>
                         <th>Batch</th>
                         <th>Quantity</th>
-                        <th>Cost/Unit</th>
                         <th>Issued On</th>
                         <th class="text-center">Actions</th>
                     </tr>
@@ -104,7 +91,7 @@ if ($result) {
                 <tbody id="assemblingLogsTableBody">
                     <?php if (empty($products)): ?>
                         <tr>
-                            <td colspan="13" class="text-center">No pending assembling logs found</td>
+                            <td colspan="12" class="text-center">No pending assembling logs found</td>
                         </tr>
                     <?php else: ?>
                         <?php
@@ -122,7 +109,6 @@ if ($result) {
                                 <td><?php echo htmlspecialchars($product['regionName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['batchNumber']); ?></td>
                                 <td><?php echo htmlspecialchars($product['quantity']); ?></td>
-                                <td><strong>RS <?php echo number_format($product['cost'], 2); ?></strong></td>
                                 <td><?php echo date('M d, Y h:i A', strtotime($product['createdAt'])); ?></td>
                                 <td class="text-center">
                                     <button class="btn btn-primary" style="padding: 8px 12px; margin-right: 4px;" onclick='viewAssemblingProduct(<?php echo json_encode($product, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>View</button>
@@ -166,7 +152,6 @@ if ($result) {
     }
 
     function viewAssemblingProduct(product) {
-        const totalCost = (product.quantity * product.cost).toFixed(2);
         const detailsHtml = `
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 20px;">
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
@@ -205,14 +190,6 @@ if ($result) {
                     <div>
                         <label style="font-weight: 600; color: white; display: block; margin-bottom: 8px; font-size: 13px; text-transform: uppercase;">Quantity</label>
                         <p style="margin: 0; padding: 12px; background: white; border-radius: 8px; color: #333;">${product.quantity || '0'}</p>
-                    </div>
-                    <div>
-                        <label style="font-weight: 600; color: white; display: block; margin-bottom: 8px; font-size: 13px; text-transform: uppercase;">Cost Per Unit</label>
-                        <p style="margin: 0; padding: 12px; background: white; border-radius: 8px; color: #333;">RS ${parseFloat(product.cost || 0).toFixed(2)}</p>
-                    </div>
-                    <div>
-                        <label style="font-weight: 600; color: white; display: block; margin-bottom: 8px; font-size: 13px; text-transform: uppercase;">Total Cost</label>
-                        <p style="margin: 0; padding: 12px; background: white; border-radius: 8px; color: #4caf50; font-size: 18px; font-weight: 600;">RS ${parseFloat(totalCost || 0).toFixed(2)}</p>
                     </div>
                 </div>
                 <div style="margin-top: 20px;">
