@@ -262,7 +262,6 @@ if ($haveMultipleRegions === 1) {
                         </div>
                     <?php endif ?>
                     <div class="submenu-item" onclick="loadContent('addDistributingOfficer')">
-                        <!-- <span class="icon">🌍</span> -->
                         <span class="icon">➕</span>
                         <span>Add Ware House</span>
                     </div>
