@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $batchNumber = trim($_POST['batchNumber'] ?? '');
     $quantity = intval($_POST['quantity'] ?? 0);
     $regionID = intval($_POST['regionID'] ?? 0);
-    $cost = floatval($_POST['cost'] ?? 0);
     $description = trim($_POST['description'] ?? '');
     
     // Validation
@@ -62,31 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    if ($cost < 0) {
-        echo json_encode(['success' => false, 'message' => 'Cost cannot be negative']);
-        exit;
-    }
-    
-    // Check for duplicate product (same name, category, brand, color, size, and region)
-    $checkStmt = $conn->prepare("SELECT productID FROM products WHERE productName = ? AND categoryID = ? AND brandID = ? AND colorID = ? AND sizeID = ? AND regionID = ?");
-    $checkStmt->bind_param("siiiii", $productName, $categoryID, $brandID, $colorID, $sizeID, $regionID);
-    $checkStmt->execute();
-    $checkStmt->store_result();
-    
-    if ($checkStmt->num_rows > 0) {
-        echo json_encode(['success' => false, 'message' => 'Product with same name, category, color, size, and region already exists']);
-        $checkStmt->close();
-        exit;
-    }
-    $checkStmt->close();
-    
     // Begin transaction
     $conn->begin_transaction();
     
     try {
-        // Insert product (set available = quantity initially) including brandID
-        $stmt = $conn->prepare("INSERT INTO products (productName, categoryID, brandID, colorID, modelID, sizeID, batchNumber, quantity, available, regionID, cost, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiiiisiiids", $productName, $categoryID, $brandID, $colorID, $modelID, $sizeID, $batchNumber, $quantity, $quantity, $regionID, $cost, $description);
+        // Insert product (set available = quantity initially, cost = NULL for assembling)
+        $stmt = $conn->prepare("INSERT INTO products (productName, categoryID, brandID, colorID, modelID, sizeID, batchNumber, quantity, available, regionID, cost, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)");
+        $stmt->bind_param("siiiiisiiis", $productName, $categoryID, $brandID, $colorID, $modelID, $sizeID, $batchNumber, $quantity, $quantity, $regionID, $description);
         
         if (!$stmt->execute()) {
             throw new Exception('Failed to add product');
@@ -96,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
         
         // Insert into product_batch table
-        $batchStmt = $conn->prepare("INSERT INTO product_batch (productID, batchNumber, quantity, cost) VALUES (?, ?, ?, ?)");
-        $batchStmt->bind_param("isid", $productID, $batchNumber, $quantity, $cost);
+        $batchStmt = $conn->prepare("INSERT INTO product_batch (productID, batchNumber, quantity, cost) VALUES (?, ?, ?, NULL)");
+        $batchStmt->bind_param("isi", $productID, $batchNumber, $quantity);
         
         if (!$batchStmt->execute()) {
             throw new Exception('Failed to log batch information');

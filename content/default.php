@@ -2,42 +2,81 @@
 require __DIR__ . '/../adminAuth.php';
 require __DIR__ . '/../db.php';
 
+function defaultQueryCount($conn, $sql)
+{
+    $result = $conn->query($sql);
+    if (!$result) {
+        return 0;
+    }
+    $row = $result->fetch_assoc();
+    return isset($row['count']) ? intval($row['count']) : 0;
+}
+
+function defaultQuerySum($conn, $sql)
+{
+    $result = $conn->query($sql);
+    if (!$result) {
+        return 0;
+    }
+    $row = $result->fetch_assoc();
+    return isset($row['total']) ? floatval($row['total']) : 0;
+}
+
+$productStatusFilter = '';
+$statusColumnCheck = $conn->query("SHOW COLUMNS FROM products LIKE 'status'");
+if ($statusColumnCheck && $statusColumnCheck->num_rows > 0) {
+    $productStatusFilter = ' AND status = 1';
+}
+
 // Get counts from database
-$categoryCount = $conn->query("SELECT COUNT(*) as count FROM categories")->fetch_assoc()['count'];
-$colorCount = $conn->query("SELECT COUNT(*) as count FROM colors")->fetch_assoc()['count'];
-$sizeCount = $conn->query("SELECT COUNT(*) as count FROM sizes")->fetch_assoc()['count'];
-$modelCount = $conn->query("SELECT COUNT(*) as count FROM models")->fetch_assoc()['count'];
-$regionCount = $conn->query("SELECT COUNT(*) as count FROM regions")->fetch_assoc()['count'];
+$categoryCount = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM categories");
+$colorCount = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM colors");
+$sizeCount = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM sizes");
+$modelCount = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM models");
+$regionCount = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM regions");
 $productCount = 0;
 $availableStockTotal = 0;
 if (isset($adminRole) && $adminRole === 'superadmin') {
-    $productCount = $conn->query("SELECT COUNT(*) as count FROM products WHERE status = 1")->fetch_assoc()['count'];
-    $availableStockTotal = $conn->query("SELECT COALESCE(SUM(available), 0) as total FROM products WHERE status = 1")->fetch_assoc()['total'];
+    $productCount = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM products WHERE 1=1" . $productStatusFilter);
+    $availableStockTotal = defaultQuerySum($conn, "SELECT COALESCE(SUM(available), 0) as total FROM products WHERE 1=1" . $productStatusFilter);
 } else {
     $regionIDToUse = isset($regionID) ? intval($regionID) : 0;
-    $productCount = $conn->query("SELECT COUNT(*) as count FROM products WHERE regionID = " . $regionIDToUse . " AND status = 1")->fetch_assoc()['count'];
-    $availableStockTotal = $conn->query("SELECT COALESCE(SUM(available), 0) as total FROM products WHERE regionID = " . $regionIDToUse . " AND status = 1")->fetch_assoc()['total'];
+    $productCount = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM products WHERE regionID = " . $regionIDToUse . $productStatusFilter);
+    $availableStockTotal = defaultQuerySum($conn, "SELECT COALESCE(SUM(available), 0) as total FROM products WHERE regionID = " . $regionIDToUse . $productStatusFilter);
 }
 
 // DO Stats
 $regionIDToUse = isset($regionID) ? intval($regionID) : 0;
-if (isset($adminRole) && $adminRole === 'superadmin') {
-    $doTodayDispatch = $conn->query("SELECT COUNT(*) as count FROM do_sales WHERE DATE(saleDate) = CURDATE() AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL")->fetch_assoc()['count'];
-    $doTotalDispatch = $conn->query("SELECT COUNT(*) as count FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL")->fetch_assoc()['count'];
-    $doAmountEarned  = $conn->query("SELECT COALESCE(SUM(amountPaid), 0) as total FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL")->fetch_assoc()['total'];
-    $doPending       = $conn->query("SELECT COALESCE(SUM(pendingAmount), 0) as total FROM do_sales WHERE paymentStatus IN ('pending','partial') AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL")->fetch_assoc()['total'];
-} else {
-    $doTodayDispatch = $conn->query("SELECT COUNT(*) as count FROM do_sales WHERE DATE(saleDate) = CURDATE() AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse)->fetch_assoc()['count'];
-    $doTotalDispatch = $conn->query("SELECT COUNT(*) as count FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse)->fetch_assoc()['count'];
-    $doAmountEarned  = $conn->query("SELECT COALESCE(SUM(amountPaid), 0) as total FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse)->fetch_assoc()['total'];
-    $doPending       = $conn->query("SELECT COALESCE(SUM(pendingAmount), 0) as total FROM do_sales WHERE paymentStatus IN ('pending','partial') AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse)->fetch_assoc()['total'];
+$doTodayDispatch = 0;
+$doTotalDispatch = 0;
+$doAmountEarned = 0;
+$doPending = 0;
+if (!isset($adminRole) || $adminRole !== 'user') {
+    if (isset($adminRole) && $adminRole === 'superadmin') {
+        $doTodayDispatch = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM do_sales WHERE DATE(saleDate) = CURDATE() AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL");
+        $doTotalDispatch = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL");
+        $doAmountEarned  = defaultQuerySum($conn, "SELECT COALESCE(SUM(amountPaid), 0) as total FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL");
+        $doPending       = defaultQuerySum($conn, "SELECT COALESCE(SUM(pendingAmount), 0) as total FROM do_sales WHERE paymentStatus IN ('pending','partial') AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL");
+    } else {
+        $doTodayDispatch = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM do_sales WHERE DATE(saleDate) = CURDATE() AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse);
+        $doTotalDispatch = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse);
+        $doAmountEarned  = defaultQuerySum($conn, "SELECT COALESCE(SUM(amountPaid), 0) as total FROM do_sales WHERE approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse);
+        $doPending       = defaultQuerySum($conn, "SELECT COALESCE(SUM(pendingAmount), 0) as total FROM do_sales WHERE paymentStatus IN ('pending','partial') AND approvedByAdmin IS NOT NULL AND approvedBySuperAdmin IS NOT NULL AND regionID = " . $regionIDToUse);
+    }
 }
 
-// Ledger Stats
-$ledgerTodayDispatch = $conn->query("SELECT COUNT(*) as count FROM ledger_sales WHERE DATE(saleDate) = CURDATE()")->fetch_assoc()['count'];
-$ledgerTotalDispatch = $conn->query("SELECT COUNT(*) as count FROM ledger_sales")->fetch_assoc()['count'];
-$ledgerAmountEarned  = $conn->query("SELECT COALESCE(SUM(amountPaid), 0) as total FROM ledger_sales")->fetch_assoc()['total'];
-$ledgerPending       = $conn->query("SELECT COALESCE(SUM(pendingAmount), 0) as total FROM ledger_sales WHERE paymentStatus IN ('pending','partial')")->fetch_assoc()['total'];
+// Ledger stats (section currently disabled in UI)
+$ledgerTodayDispatch = 0;
+$ledgerTotalDispatch = 0;
+$ledgerAmountEarned = 0;
+$ledgerPending = 0;
+$ledgerStatsResult = $conn->query("SHOW TABLES LIKE 'ledger_sales'");
+if ($ledgerStatsResult && $ledgerStatsResult->num_rows > 0) {
+    $ledgerTodayDispatch = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM ledger_sales WHERE DATE(saleDate) = CURDATE()");
+    $ledgerTotalDispatch = defaultQueryCount($conn, "SELECT COUNT(*) as count FROM ledger_sales");
+    $ledgerAmountEarned  = defaultQuerySum($conn, "SELECT COALESCE(SUM(amountPaid), 0) as total FROM ledger_sales");
+    $ledgerPending       = defaultQuerySum($conn, "SELECT COALESCE(SUM(pendingAmount), 0) as total FROM ledger_sales WHERE paymentStatus IN ('pending','partial')");
+}
 
 // Fetch all data for dropdowns
 $categories = [];
@@ -77,7 +116,7 @@ if ($regionsResult) {
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
                 
-                <div onclick="loadContent('inventory')" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(17, 153, 142, 0.3); cursor: pointer; transition: transform 0.3s ease;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div onclick="loadContent('<?php echo ($adminRole === 'user') ? 'parts' : 'inventory'; ?>')" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(17, 153, 142, 0.3); cursor: pointer; transition: transform 0.3s ease;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div>
                             <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Products</div>
@@ -87,7 +126,7 @@ if ($regionsResult) {
                     </div>
                 </div>
 
-                <div onclick="loadContent('inventory')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); cursor: pointer; transition: transform 0.3s ease;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div onclick="loadContent('<?php echo ($adminRole === 'user') ? 'parts' : 'inventory'; ?>')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); cursor: pointer; transition: transform 0.3s ease;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div>
                             <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Available Stock</div>
@@ -97,7 +136,7 @@ if ($regionsResult) {
                     </div>
                 </div>
 
-                <div onclick="openFilterModal('model')" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3); cursor: pointer; transition: transform 0.3s ease;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div <?php if ($adminRole !== 'user'): ?>onclick="openFilterModal('model')"<?php endif; ?> style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3); <?php echo ($adminRole !== 'user') ? 'cursor: pointer;' : ''; ?> transition: transform 0.3s ease;" <?php if ($adminRole !== 'user'): ?>onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'"<?php endif; ?>>
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div>
                             <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Models</div>
@@ -107,7 +146,7 @@ if ($regionsResult) {
                     </div>
                 </div>
 
-                <div onclick="openFilterModal('region')" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(250, 112, 154, 0.3); cursor: pointer; transition: transform 0.3s ease;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div <?php if ($adminRole !== 'user'): ?>onclick="openFilterModal('region')"<?php endif; ?> style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); padding: 25px; border-radius: 15px; color: white; box-shadow: 0 4px 15px rgba(250, 112, 154, 0.3); <?php echo ($adminRole !== 'user') ? 'cursor: pointer;' : ''; ?> transition: transform 0.3s ease;" <?php if ($adminRole !== 'user'): ?>onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'"<?php endif; ?>>
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div>
                             <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Regions</div>
@@ -119,10 +158,11 @@ if ($regionsResult) {
 
             </div>
 
+            <?php if (!isset($adminRole) || $adminRole !== 'user'): ?>
             <!-- Distributing Officers Stats -->
             <div style="margin-bottom: 10px; padding: 10px 0 5px 0;">
                 <h4 style="color: #667eea; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                    🚚 Distributing Officers
+                    🚚 Ware Houses
                 </h4>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px;">
@@ -168,6 +208,7 @@ if ($regionsResult) {
                 </div>
 
             </div>
+            <?php endif; ?>
 
             <!-- Ledgers Stats -->
             <!-- <div style="margin-bottom: 10px; padding: 5px 0;">

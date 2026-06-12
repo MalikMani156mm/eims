@@ -146,7 +146,8 @@ if ($result) {
                                     </span>
                                 </td>
                                 <td class="text-center">
-                                    <button class="btn btn-primary" style="padding: 8px 16px; margin-right: 5px;" onclick="viewUser(<?php echo htmlspecialchars(json_encode($user)); ?>)">View</button>
+                                    <button class="btn btn-primary" style="padding: 8px 16px; margin-right: 5px;" onclick='viewUser(<?php echo htmlspecialchars(json_encode($user), ENT_QUOTES, 'UTF-8'); ?>)'>View</button>
+                                    <button class="btn btn-warning" style="padding: 8px 16px; margin-right: 5px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer;" onclick='resetUserPassword(<?php echo intval($user['user_id']); ?>, <?php echo json_encode($user['username'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>Reset Password</button>
                                     <?php if ($isToday): ?>
                                         <button class="btn-delete" onclick="deleteUser(<?php echo $user['user_id']; ?>)">Delete</button>
                                     <?php endif; ?>
@@ -215,6 +216,86 @@ if ($result) {
             });
         });
     });
+
+    function resetUserPassword(userId, username) {
+        Swal.fire({
+            title: 'Reset Password',
+            html: `
+                <p style="margin-bottom: 12px;">User: <strong>${username}</strong></p>
+                <label for="resetNewPassword" style="display:block; text-align:left; margin-bottom:8px; font-weight:600;">New Password</label>
+                <input id="resetNewPassword" type="password" class="swal2-input" placeholder="Enter new password" style="width:100%; margin:0 0 12px 0;">
+                <label for="resetConfirmPassword" style="display:block; text-align:left; margin-bottom:8px; font-weight:600;">Confirm Password</label>
+                <input id="resetConfirmPassword" type="password" class="swal2-input" placeholder="Confirm new password" style="width:100%; margin:0;">
+                <p style="margin-top: 10px; font-size: 12px; color: #666; text-align: left;">Minimum 8 characters required.</p>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Reset Password',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#ff9800',
+            focusConfirm: false,
+            preConfirm: function() {
+                const newPassword = document.getElementById('resetNewPassword').value;
+                const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+                if (!newPassword || !confirmPassword) {
+                    Swal.showValidationMessage('Please fill in both password fields');
+                    return false;
+                }
+
+                if (newPassword.length < 8) {
+                    Swal.showValidationMessage('Password must be at least 8 characters');
+                    return false;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    Swal.showValidationMessage('Passwords do not match');
+                    return false;
+                }
+
+                return { newPassword: newPassword, confirmPassword: confirmPassword };
+            }
+        }).then(function(result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            $.ajax({
+                url: 'backend/resetUserPassword.php',
+                type: 'POST',
+                data: {
+                    user_id: userId,
+                    newPassword: result.value.newPassword,
+                    confirmPassword: result.value.confirmPassword
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Password Reset',
+                            text: response.message,
+                            timer: 2200,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Failed',
+                            text: response.message || 'Could not reset password'
+                        });
+                    }
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Server error while resetting password'
+                    });
+                }
+            });
+        });
+    }
 
     function deleteUser(id) {
         Swal.fire({

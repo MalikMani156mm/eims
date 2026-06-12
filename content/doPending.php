@@ -280,6 +280,31 @@ $totalPending = array_sum(array_column($pendingDispatches, 'pendingAmount'));
         border-color: #f5576c;
         box-shadow: 0 0 0 3px rgba(245, 87, 108, 0.1);
     }
+
+    .table-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+
+    .btn-export {
+        padding: 10px 18px;
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.25);
+    }
+
+    .btn-export:hover {
+        background: #388e3c;
+    }
 </style>
 
 <div class="pending-container">
@@ -308,9 +333,12 @@ $totalPending = array_sum(array_column($pendingDispatches, 'pendingAmount'));
     </div>
     
     <div class="table-card">
-        <input type="text" id="searchPending" class="search-box" placeholder="🔍 Search by DO name, CNIC, or Sale ID...">
+        <div class="table-toolbar">
+            <input type="text" id="searchPending" class="search-box" placeholder="🔍 Search by DO name, CNIC, or Sale ID..." style="margin-bottom: 0;">
+            <button type="button" class="btn-export" onclick="exportDoPendingCSV()">Export CSV</button>
+        </div>
         
-        <table class="pending-table">
+        <table class="pending-table" id="pendingTable">
             <thead>
                 <tr>
                     <th>Sale ID</th>
@@ -370,9 +398,11 @@ $totalPending = array_sum(array_column($pendingDispatches, 'pendingAmount'));
                         <button class="btn-action btn-print" onclick="printReceipt(<?php echo $dispatch['saleID']; ?>)">
                             🖨️ Print
                         </button>
+                        <?php if (isset($adminRole) && $adminRole === 'admin'): ?>
                         <button class="btn-action btn-payment" onclick="openPaymentModal(<?php echo $dispatch['saleID']; ?>, <?php echo $dispatch['pendingAmount']; ?>)">
                             💰 Pay
                         </button>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -442,6 +472,75 @@ $totalPending = array_sum(array_column($pendingDispatches, 'pendingAmount'));
         // Update overdue count in sidebar
         updateOverdueCount(<?php echo $overdueCount; ?>);
     });
+
+    function csvEscape(value) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+            return '"' + text.replace(/"/g, '""') + '"';
+        }
+        return text;
+    }
+
+    function exportVisibleTableToCSV(tableSelector, filename) {
+        const table = document.querySelector(tableSelector);
+        if (!table) {
+            return;
+        }
+
+        const headerCells = table.querySelectorAll('thead th');
+        const headers = [];
+        headerCells.forEach(function(cell, index) {
+            if (index < headerCells.length - 1) {
+                headers.push(csvEscape(cell.innerText));
+            }
+        });
+
+        const rows = [];
+        table.querySelectorAll('tbody tr').forEach(function(row) {
+            if (!$(row).is(':visible')) {
+                return;
+            }
+            if (row.querySelector('td[colspan]')) {
+                return;
+            }
+
+            const cells = row.querySelectorAll('td');
+            const rowData = [];
+            cells.forEach(function(cell, index) {
+                if (index < cells.length - 1) {
+                    rowData.push(csvEscape(cell.innerText));
+                }
+            });
+            if (rowData.length) {
+                rows.push(rowData.join(','));
+            }
+        });
+
+        if (!rows.length) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Nothing to Export',
+                text: 'No visible rows match your current search.'
+            });
+            return;
+        }
+
+        const csvContent = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    }
+
+    function exportDoPendingCSV() {
+        const searchText = ($('#searchPending').val() || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        const suffix = searchText ? '_' + searchText.substring(0, 30) : '';
+        exportVisibleTableToCSV('#pendingTable', 'do_pending_payments' + suffix + '_' + new Date().toISOString().slice(0, 10) + '.csv');
+    }
     
     function viewDispatch(saleID) {
         loadContent('doDispatchHistory');

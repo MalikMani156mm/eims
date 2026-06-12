@@ -225,11 +225,6 @@ if ($result) {
                         <?php endforeach; ?>
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label for="cost" class="form-label">Assembling Cost</label>
-                    <input type="number" id="cost" name="cost" class="form-control" placeholder="Enter price of AC" min="0" step="0.01" required>
-                </div>
             </div>
 
             <!-- Row 3: Quantity (hidden/fixed to 1), Region (only for admin) -->
@@ -388,7 +383,6 @@ if ($result) {
                         <th>Region</th>
                         <th>Quantity</th>
                         <th>Available</th>
-                        <th>Cost/Unit</th>
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
@@ -415,7 +409,6 @@ if ($result) {
                                 <td><?php echo htmlspecialchars($product['regionName'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($product['quantity']); ?></td>
                                 <td><strong style="color: #11998e;"><?php echo htmlspecialchars($product['available'] ?? $product['quantity']); ?></strong></td>
-                                <td><strong>RS <?php echo number_format($product['cost'], 2); ?></strong></td>
                                 <td class="text-center">
                                     <button class="btn btn-primary" style="padding: 8px 16px; margin-right: 5px;" onclick="viewProduct(<?php echo htmlspecialchars(json_encode($product)); ?>)">View</button>
                                     <!-- <button class="btn btn-success" style="padding: 8px 16px; margin-right: 5px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="openUpdateModal(<?php echo htmlspecialchars(json_encode($product)); ?>)">Update</button> -->
@@ -490,20 +483,10 @@ if ($result) {
                 <small style="color: #666; font-size: 12px;">This will be added to current quantity</small>
             </div>
 
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label for="updateCost" class="form-label">Cost Per Unit</label>
-                <input type="number" id="updateCost" name="cost" class="form-control" placeholder="Enter cost per unit" min="0" step="0.01" required>
-                <small style="color: #666; font-size: 12px;">This will update the product's unit cost</small>
-            </div>
-
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between;">
                     <span style="color: #666;">Current Quantity:</span>
                     <strong id="currentQuantity">0</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="color: #666;">Current Cost/Unit:</span>
-                    <strong id="currentCost">RS 0.00</strong>
                 </div>
             </div>
 
@@ -1102,12 +1085,10 @@ if ($result) {
         $('#updateProductID').val(product.productID);
         $('#updateProductName').text(product.productName);
         $('#currentQuantity').text(product.quantity);
-        $('#currentCost').text('RS ' + parseFloat(product.cost || 0).toFixed(2));
 
         // Clear form
         $('#updateBatchNumber').val('');
         $('#updateQuantity').val('');
-        $('#updateCost').val('');
 
         $('#updateProductModal').fadeIn(300);
         $('body').css('overflow', 'hidden');
@@ -1208,7 +1189,6 @@ if ($result) {
     }
 
     function viewProduct(product) {
-        const totalCost = (product.quantity * product.cost).toFixed(2);
         const detailsHtml = `
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 20px;">
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
@@ -1247,14 +1227,6 @@ if ($result) {
                     <div>
                         <label style="font-weight: 600; color: white; display: block; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Region</label>
                         <p style="margin: 0; padding: 12px; background: white; border-radius: 8px; font-weight: 500; color: #333;">${product.regionName || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <label style="font-weight: 600; color: white; display: block; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Cost Per Unit</label>
-                        <p style="margin: 0; padding: 12px; background: white; border-radius: 8px; font-weight: 500; color: #333;">RS ${parseFloat(product.cost || 0).toFixed(2)}</p>
-                    </div>
-                    <div>
-                        <label style="font-weight: 600; color: white; display: block; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Total Cost</label>
-                        <p style="margin: 0; padding: 12px; background: white; border-radius: 8px; font-weight: 500; color: #333; font-size: 18px; color: #4caf50;">RS ${parseFloat(totalCost || 0).toFixed(2)}</p>
                     </div>
                 </div>
                 <div style="margin-top: 20px;">
@@ -1399,8 +1371,6 @@ if ($result) {
                             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">S.No</th>
                             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Batch Number</th>
                             <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Quantity</th>
-                            <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Cost/Unit</th>
-                            <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Total Cost</th>
                             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Date</th>
                         </tr>
                     </thead>
@@ -1410,20 +1380,17 @@ if ($result) {
         if (batches.length === 0) {
             html += `
                 <tr>
-                    <td colspan="6" style="padding: 20px; text-align: center; color: #999;">No batch logs found</td>
+                    <td colspan="4" style="padding: 20px; text-align: center; color: #999;">No batch logs found</td>
                 </tr>
             `;
         } else {
             batches.forEach((batch, index) => {
-                const batchTotal = (batch.quantity * batch.cost).toFixed(2);
                 const rowColor = index % 2 === 0 ? '#f9f9f9' : 'white';
                 html += `
                     <tr style="background: ${rowColor};">
                         <td style="padding: 12px; border: 1px solid #ddd;">${index + 1}</td>
                         <td style="padding: 12px; border: 1px solid #ddd; font-weight: 500;">${batch.batchNumber}</td>
                         <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">${batch.quantity}</td>
-                        <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">RS ${parseFloat(batch.cost).toFixed(2)}</td>
-                        <td style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: 600;">RS ${batchTotal}</td>
                         <td style="padding: 12px; border: 1px solid #ddd;">${new Date(batch.createdAt).toLocaleDateString()}</td>
                     </tr>
                 `;
@@ -1436,8 +1403,6 @@ if ($result) {
                         <tr style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; font-weight: bold;">
                             <td colspan="2" style="padding: 15px; border: 1px solid #ddd; text-align: right;">TOTAL:</td>
                             <td style="padding: 15px; border: 1px solid #ddd; text-align: right; font-size: 16px;">${totals.totalQuantity}</td>
-                            <td style="padding: 15px; border: 1px solid #ddd;"></td>
-                            <td style="padding: 15px; border: 1px solid #ddd; text-align: right; font-size: 16px;">RS ${parseFloat(totals.totalCost).toFixed(2)}</td>
                             <td style="padding: 15px; border: 1px solid #ddd;"></td>
                         </tr>
                     </tfoot>

@@ -108,10 +108,7 @@ function bindSectionLogic(section) {
 
 // Use jQuery's ready to ensure DOM is loaded and jQuery is available
 $(document).ready(function () {
-    // Initial load of the default content
-    loadContent('default');
-
-    // Set an interval to reload the default content every 3 seconds (3000 milliseconds)
+    // Initial load is handled in dashboard.php for role-aware startup
     setInterval(function () {
         if (currentSection === 'default') {
             loadContent('default');

@@ -7,7 +7,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $productID = intval($_POST['productID'] ?? 0);
     $batchNumber = trim($_POST['batchNumber'] ?? '');
     $quantity = intval($_POST['quantity'] ?? 0);
-    $cost = floatval($_POST['cost'] ?? 0);
     
     // Validation
     if ($productID <= 0) {
@@ -25,18 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    if ($cost < 0) {
-        echo json_encode(['success' => false, 'message' => 'Cost cannot be negative']);
-        exit;
-    }
-    
     // Begin transaction
     $conn->begin_transaction();
     
     try {
         // First, insert into product_batch table (log the batch)
-        $batchStmt = $conn->prepare("INSERT INTO product_batch (productID, batchNumber, quantity, cost) VALUES (?, ?, ?, ?)");
-        $batchStmt->bind_param("isid", $productID, $batchNumber, $quantity, $cost);
+        $batchStmt = $conn->prepare("INSERT INTO product_batch (productID, batchNumber, quantity, cost) VALUES (?, ?, ?, NULL)");
+        $batchStmt->bind_param("isi", $productID, $batchNumber, $quantity);
         
         if (!$batchStmt->execute()) {
             throw new Exception('Failed to log batch information');
@@ -44,9 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $batchStmt->close();
         
         // Second, update the main products table
-        // Add quantity, increment available, and update cost
-        $updateStmt = $conn->prepare("UPDATE products SET quantity = quantity + ?, available = available + ?, cost = ?, updatedAt = NOW() WHERE productID = ?");
-        $updateStmt->bind_param("iidi", $quantity, $quantity, $cost, $productID);
+        $updateStmt = $conn->prepare("UPDATE products SET quantity = quantity + ?, available = available + ?, updatedAt = NOW() WHERE productID = ?");
+        $updateStmt->bind_param("iii", $quantity, $quantity, $productID);
         
         if (!$updateStmt->execute()) {
             throw new Exception('Failed to update product');
@@ -63,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         echo json_encode([
             'success' => true, 
-            'message' => "Product updated successfully! Added $quantity units at RS " . number_format($cost, 2) . " per unit",
+            'message' => "Product updated successfully! Added $quantity units",
             'productID' => $productID,
             'batchNumber' => $batchNumber,
             'quantity' => $quantity

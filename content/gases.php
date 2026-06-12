@@ -35,39 +35,6 @@ if ($result) {
     }
 }
 
-// Vendor pendencies summary
-$vendorPendencies = [];
-$vendorResult = $conn->query("
-    SELECT
-        v.vendorID,
-        v.vendorName,
-        COUNT(gbd.batch_id) as gas_count,
-        COALESCE(SUM(gbd.total_price), 0) as total_amount,
-        COALESCE(SUM(gbd.paid_price), 0) as total_paid,
-        COALESCE(SUM(gbd.pending_price), 0) as total_pending
-    FROM vendors v
-    INNER JOIN gas_batch_details gbd ON v.vendorID = gbd.vendorID
-    GROUP BY v.vendorID, v.vendorName
-    ORDER BY total_pending DESC, v.vendorName ASC
-");
-
-if ($vendorResult) {
-    $vendorSerial = 1;
-    while ($row = $vendorResult->fetch_assoc()) {
-        $row['serial'] = $vendorSerial++;
-        $vendorPendencies[] = $row;
-    }
-}
-
-$totalGasPending = 0;
-$totalGasPaid = 0;
-$totalGasAmount = 0;
-foreach ($gases as $gas) {
-    $totalGasPending += floatval($gas['pending_price']);
-    $totalGasPaid += floatval($gas['paid_price']);
-    $totalGasAmount += floatval($gas['total_amount']);
-}
-
 // Fetch gas_logs allocation history
 $gasLogs = [];
 $logsResult = $conn->query("
@@ -103,35 +70,6 @@ if ($logsResult) {
 
 <div class="gases-section">
     <h2 style="margin-bottom: 25px; color: #333; font-size: 24px; font-weight: 600;">Gas Inventory Overview</h2>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
-            <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Total Gas Amount</div>
-            <div style="font-size: 28px; font-weight: bold;">RS <?php echo number_format($totalGasAmount, 2); ?></div>
-        </div>
-        <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 20px; border-radius: 12px; color: white;">
-            <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Total Paid</div>
-            <div style="font-size: 28px; font-weight: bold;">RS <?php echo number_format($totalGasPaid, 2); ?></div>
-        </div>
-        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; color: white;">
-            <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Total Pending</div>
-            <div style="font-size: 28px; font-weight: bold;">RS <?php echo number_format($totalGasPending, 2); ?></div>
-        </div>
-        <div style="background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%); padding: 20px; border-radius: 12px; color: white;">
-            <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Vendors with Pending</div>
-            <div style="font-size: 28px; font-weight: bold;">
-                <?php
-                $vendorsWithPending = 0;
-                foreach ($vendorPendencies as $vp) {
-                    if (floatval($vp['total_pending']) > 0) {
-                        $vendorsWithPending++;
-                    }
-                }
-                echo $vendorsWithPending;
-                ?>
-            </div>
-        </div>
-    </div>
     
     <!-- Gases Table -->
     <div class="gases-table" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
@@ -192,71 +130,6 @@ if ($logsResult) {
                     <?php if (empty($gases)): ?>
                     <tr>
                         <td colspan="12" style="text-align: center; padding: 30px; color: #999;">No gases found. Start by adding a new gas from the Add New menu.</td>
-                    </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Vendor Pendencies Section -->
-<div class="vendor-pendencies-section" style="margin-top: 40px; padding: 0 20px;">
-    <h2 style="margin-bottom: 25px; color: #333; font-size: 24px; font-weight: 600;">🏪 Vendor Pendencies</h2>
-
-    <div class="vendor-pendencies-table" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-        <div class="table-responsive">
-            <table class="table" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
-                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">#</th>
-                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Vendor Name</th>
-                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Batch Entries</th>
-                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Total Amount</th>
-                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Total Paid</th>
-                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Total Pending</th>
-                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Status</th>
-                        <th style="padding: 12px; text-align: center; font-weight: 600; color: #333;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($vendorPendencies as $vendor): ?>
-                    <tr style="border-bottom: 1px solid #e0e0e0;">
-                        <td style="padding: 12px; color: #666;"><?php echo $vendor['serial']; ?></td>
-                        <td style="padding: 12px;"><strong style="color: #333;"><?php echo htmlspecialchars($vendor['vendorName']); ?></strong></td>
-                        <td style="padding: 12px; text-align: center;">
-                            <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
-                                <?php echo intval($vendor['gas_count']); ?>
-                            </span>
-                        </td>
-                        <td style="padding: 12px; color: #333; font-weight: 600;">RS <?php echo number_format($vendor['total_amount'], 2); ?></td>
-                        <td style="padding: 12px; color: #11998e; font-weight: 600;">RS <?php echo number_format($vendor['total_paid'], 2); ?></td>
-                        <td style="padding: 12px;">
-                            <?php if (floatval($vendor['total_pending']) > 0): ?>
-                                <strong style="color: #f44336;">RS <?php echo number_format($vendor['total_pending'], 2); ?></strong>
-                            <?php else: ?>
-                                <strong style="color: #4caf50;">RS 0.00</strong>
-                            <?php endif; ?>
-                        </td>
-                        <td style="padding: 12px;">
-                            <?php if (floatval($vendor['total_pending']) > 0): ?>
-                                <span style="background: #ffebee; color: #c62828; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">Pending</span>
-                            <?php else: ?>
-                                <span style="background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">Cleared</span>
-                            <?php endif; ?>
-                        </td>
-                        <td style="padding: 12px; text-align: center;">
-                            <?php if (floatval($vendor['total_pending']) > 0): ?>
-                                <button class="btn btn-sm" onclick='payVendorPending(<?php echo intval($vendor['vendorID']); ?>, <?php echo json_encode($vendor['vendorName'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>, <?php echo floatval($vendor['total_pending']); ?>)' style="padding: 6px 14px; font-size: 12px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Pay</button>
-                            <?php else: ?>
-                                <span style="color: #999; font-size: 12px;">—</span>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                    <?php if (empty($vendorPendencies)): ?>
-                    <tr>
-                        <td colspan="8" style="text-align: center; padding: 30px; color: #999;">No vendor pendencies found. Add gas with a vendor to track payments here.</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
@@ -349,80 +222,6 @@ if ($logsResult) {
 </div>
 
 <script>
-window.payVendorPending = function(vendorID, vendorName, totalPending) {
-    Swal.fire({
-        title: 'Pay Vendor Pending',
-        html: `
-            <p style="margin-bottom: 12px;">Vendor: <strong>${vendorName}</strong></p>
-            <p style="margin-bottom: 16px;">Total Pending: <strong style="color: #f44336;">RS ${parseFloat(totalPending).toFixed(2)}</strong></p>
-            <label for="vendorPaymentAmount" style="display:block; text-align:left; margin-bottom:8px; font-weight:600;">Payment Amount</label>
-            <input id="vendorPaymentAmount" type="number" class="swal2-input" placeholder="Enter amount to pay" step="0.01" min="0.01" max="${totalPending}" value="${parseFloat(totalPending).toFixed(2)}" style="width:100%; margin:0;">
-            <p style="margin-top: 10px; font-size: 12px; color: #666; text-align: left;">You can pay the full pending amount or a partial payment.</p>
-        `,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Confirm Payment',
-        cancelButtonText: 'Cancel',
-        confirmButtonColor: '#11998e',
-        focusConfirm: false,
-        preConfirm: function() {
-            const amount = parseFloat(document.getElementById('vendorPaymentAmount').value);
-            if (!amount || amount <= 0) {
-                Swal.showValidationMessage('Please enter a valid payment amount');
-                return false;
-            }
-            if (amount > totalPending + 0.0001) {
-                Swal.showValidationMessage('Payment cannot exceed pending amount (RS ' + parseFloat(totalPending).toFixed(2) + ')');
-                return false;
-            }
-            return amount;
-        }
-    }).then(function(result) {
-        if (!result.isConfirmed) {
-            return;
-        }
-
-        $.ajax({
-            url: 'backend/payVendorPending.php',
-            type: 'POST',
-            data: {
-                vendorID: vendorID,
-                paymentAmount: result.value
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Payment Recorded',
-                        html: `
-                            <p>${response.message}</p>
-                            <p style="margin-top:8px;">Remaining Pending: <strong>RS ${parseFloat(response.remaining_pending || 0).toFixed(2)}</strong></p>
-                        `,
-                        timer: 2500,
-                        showConfirmButton: false
-                    }).then(function() {
-                        loadContent('gases');
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Payment Failed',
-                        text: response.message || 'Could not record payment'
-                    });
-                }
-            },
-            error: function() {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Server error while recording payment'
-                });
-            }
-        });
-    });
-};
-
 $(document).ready(function() {
     // View Gas Detail
     window.viewGasDetail = function(gas) {
