@@ -342,7 +342,9 @@ if ($result) {
                                                     </label>
                                                     <span style="background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">Available: <?php echo $batch['available']; ?> Units</span>
                                                 </div>
+                                                <?php if ($adminRole !== 'user'): ?>
                                                 <div style="color: #666; font-size: 13px;">Assembling Cost: <strong>RS <?php echo number_format($batch['unit_price'], 2); ?></strong></div>
+                                                <?php endif; ?>
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
@@ -519,6 +521,7 @@ if ($result) {
 <script>
     var productFormData = null;
     var updateProductData = null;
+    var showGasPricing = <?php echo ($adminRole === 'user') ? 'false' : 'true'; ?>;
 
     function escapeHtml(text) {
         if (!text) return '';
@@ -580,20 +583,22 @@ if ($result) {
                 }
                 // Add quantity input for this batch
                 const inputId = 'gas_qty_' + gasId + '_' + batchId;
+                const pricingRow = showGasPricing ? `
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                            <span>Assembling Cost: <strong>RS ${unitPrice.toFixed(2)}</strong></span>
+                            <span>Total: <strong class="batch-total-${gasId}-${batchId}" style="color: #ff9800;">RS 0.00</strong></span>
+                        </div>` : '';
                 const html = `
                     <div class="gas-batch-qty-block" data-batch-id="${batchId}" style="padding: 12px; background: #f9f9f9; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ff9800;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <strong style="color: #333;">${batchName}</strong>
                             <span style="font-size: 12px; color: #666;">Available: ${available} Units</span>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; gap: 10px; align-items: center;${showGasPricing ? ' margin-bottom: 8px;' : ''}">
                             <input type="number" id="${inputId}" class="gas-batch-qty" data-gas-id="${gasId}" data-batch-id="${batchId}" data-available="${available}" data-unit-price="${unitPrice}" min="0.01" step="0.01" placeholder="Quantity" style="flex: 1; padding: 8px; border: 2px solid #ff9800; border-radius: 4px;">
                             <span style="font-size: 12px; color: #666; white-space: nowrap;">Max: ${available}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
-                            <span>Assembling Cost: <strong>RS ${unitPrice.toFixed(2)}</strong></span>
-                            <span>Total: <strong class="batch-total-${gasId}-${batchId}" style="color: #ff9800;">RS 0.00</strong></span>
-                        </div>
+                        ${pricingRow}
                     </div>
                 `;
                 container.append(html);
@@ -622,9 +627,10 @@ if ($result) {
                 $(this).val(available);
             }
 
-            // Update total cost display
-            const totalCost = quantity * unitPrice;
-            $(`.batch-total-${gasId}-${batchId}`).text('RS ' + totalCost.toFixed(2));
+            if (showGasPricing) {
+                const totalCost = quantity * unitPrice;
+                $(`.batch-total-${gasId}-${batchId}`).text('RS ' + totalCost.toFixed(2));
+            }
         });
 
         // Function to collect gas data (multiple batches per gas)
