@@ -11,7 +11,7 @@ $dbname = "eims_db";
 $dbuser = "root";
 $dbpass = "";
 
-$secretKey = "lkjasjriongwer294neiufie2498u92jkfdsni9743nu894nfdskdfnkv9843nfk7283";
+$secretKey = "lkjasjriongwer294neiufie2498u92jkfdsni9743nu894nfdskdfnkv9843n7283";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = $_POST['username'];

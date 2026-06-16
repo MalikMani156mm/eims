@@ -124,20 +124,20 @@ if ($haveMultipleRegions === 1) {
                     <span class="icon">🏠</span>
                     <span>Home</span>
                 </div>
-                <?php if ($adminRole != 'user' ): ?>
-                <?php if ($adminRole === 'superadmin' ): ?>
-                    <div class="menu-item active" onclick="loadContent('inventory')">
-                        <span class="icon">📦</span>
-                        <span>Inventory</span>
-                    </div>
-                    <div class="menu-item active" onclick="loadContent('batchHistory')">
-                        <span class="icon">🕒</span>
-                        <span>Batch History</span>
-                    </div>
-                    <div class="menu-item active" onclick="loadContent('searchSerialNumbers')">
-                        <span class="icon">🔍</span>
-                        <span>Search Serial Numbers</span>
-                    </div>
+                <?php if ($adminRole != 'user'): ?>
+                    <?php if ($adminRole === 'superadmin'): ?>
+                        <div class="menu-item active" onclick="loadContent('inventory')">
+                            <span class="icon">📦</span>
+                            <span>Inventory</span>
+                        </div>
+                        <div class="menu-item active" onclick="loadContent('batchHistory')">
+                            <span class="icon">🕒</span>
+                            <span>Batch History</span>
+                        </div>
+                        <div class="menu-item active" onclick="loadContent('searchSerialNumbers')">
+                            <span class="icon">🔍</span>
+                            <span>Search Serial Numbers</span>
+                        </div>
                     <?php endif ?>
                     <div class="menu-item active" onclick="loadContent('gases')">
                         <span class="icon">⛽</span>
@@ -152,29 +152,31 @@ if ($haveMultipleRegions === 1) {
                     <span class="icon">📦</span>
                     <span>Parts</span>
                 </div>
-                <?php if ($adminRole === 'admin'): ?>
+                <?php if ($adminRole === 'admin' || $adminRole === 'superadmin'): ?>
                     <div class="menu-item active" onclick="loadContent('assemblingApprovalAdmin')">
                         <span class="icon">✓</span>
                         <span>Assembling Approval</span>
                         <span class="badge-count" id="assemblingApprovalAdminCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
                     </div>
-                    <div class="menu-item active" onclick="loadContent('dispatchDOApprovalAdmin')">
-                        <span class="icon">✓</span>
-                        <span>Dispatch Approval</span>
-                        <span class="badge-count" id="dispatchDOApprovalAdminCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
-                    </div>
+                    <?php if ($adminRole === 'admin'): ?>
+                        <div class="menu-item active" onclick="loadContent('dispatchDOApprovalAdmin')">
+                            <span class="icon">✓</span>
+                            <span>Dispatch Approval</span>
+                            <span class="badge-count" id="dispatchDOApprovalAdminCount" style="display: none; margin-left:8px; background:#d9534f; color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; vertical-align:middle;"></span>
+                        </div>
+                    <?php endif ?>
                     <div class="menu-item active" onclick="loadContent('addGas')">
                         <span class="icon">➕</span>
                         <span>Add Gas</span>
                     </div>
                 <?php endif ?>
-                <?php if ($adminRole === 'user' || $adminRole === 'admin'): ?>
+                <?php if ($adminRole === 'user' || $adminRole === 'admin' || $adminRole === 'superadmin'): ?>
                     <div class="menu-item active" onclick="loadContent('addParts')">
                         <span class="icon">➕</span>
                         <span>Add Parts</span>
                     </div>
                 <?php endif ?>
-                <?php if ($adminRole === 'user'): ?>
+                <?php if ($adminRole === 'user' || $adminRole === 'superadmin'): ?>
                     <div class="menu-item active" onclick="loadContent('addProduct')">
                         <span class="icon">📤</span>
                         <span>Issued for Assembling</span>
@@ -202,7 +204,7 @@ if ($haveMultipleRegions === 1) {
                         <span>Add User</span>
                     </div>
                 <?php endif ?>
-                
+
                 <?php if ($adminRole === 'admin' || $adminRole === 'superadmin'): ?>
                     <div class="menu-item" onclick="toggleDropdown(this)">
                         <span class="icon">🚚</span>
@@ -210,7 +212,7 @@ if ($haveMultipleRegions === 1) {
                         <span class="dropdown-arrow">▼</span>
                     </div>
                     <div class="submenu">
-                        <?php if ($adminRole === 'admin'): ?>
+                        <?php if ($adminRole === 'admin' || $adminRole === 'superadmin'): ?>
                             <div class="submenu-item" onclick="loadContent('dispatchToDO')">
                                 <span class="icon">📤</span>
                                 <span>Dispatch to Warehous</span>
@@ -227,7 +229,7 @@ if ($haveMultipleRegions === 1) {
                         </div>
                     </div>
                 <?php endif; ?>
-                <?php if ($adminRole === 'admin'): ?>
+                <?php if ($adminRole === 'admin' || $adminRole === 'superadmin'): ?>
                     <div class="menu-item" onclick="toggleDropdown(this)">
                         <span class="icon">⚙️</span>
                         <span>Configure</span>
