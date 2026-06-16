@@ -62,9 +62,9 @@ if ($result) {
                 <tr>
                     <th>Sale ID</th>
                     <th>Date</th>
-                    <th>DO Name</th>
+                    <th>Name</th>
                     <th>CNIC</th>
-                    <th>DO Pending</th>
+                    <th>Pending</th>
                     <th>Region</th>
                     <th>Items</th>
                     <th>Approved By</th>
@@ -117,7 +117,7 @@ function viewSale(id) {
         if (resp && resp.success) {
             let html = '';
             html += '<div style="margin-bottom:12px"><strong>Sale ID:</strong> #' + String(resp.data.sale.saleID).padStart(6,'0') + '</div>';
-            html += '<div style="margin-bottom:12px"><strong>DO:</strong> ' + (resp.data.sale.DO_Name || '') + ' (' + (resp.data.sale.CNIC || '') + ')</div>';
+            html += '<div style="margin-bottom:12px"><strong>Warehouse:</strong> ' + (resp.data.sale.DO_Name || '') + ' (' + (resp.data.sale.CNIC || '') + ')</div>';
             html += '<div style="margin-bottom:12px"><strong>Amount Paid:</strong> RS ' + (resp.data.sale.amountPaid ? parseFloat(resp.data.sale.amountPaid).toFixed(2) : '0.00') + '</div>';
             html += '<div style="margin-bottom:12px"><strong>Pending Amount:</strong> RS ' + (resp.data.sale.pendingAmount ? parseFloat(resp.data.sale.pendingAmount).toFixed(2) : '0.00') + '</div>';
             // Show payment days and due date if present

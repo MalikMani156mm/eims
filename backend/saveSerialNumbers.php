@@ -131,23 +131,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($partsData['withoutSerial'])) {
             foreach ($partsData['withoutSerial'] as $part) {
                 $partName = $part['partName'];
+                $sizeID = intval($part['sizeID'] ?? 0);
+                $typeID = intval($part['typeID'] ?? 0);
                 $quantity = intval($part['quantity']);
 
                 if ($quantity <= 0) {
                     continue;
                 }
 
-                $getStmt = $conn->prepare("
-                    SELECT partID, regionID, batchName, brandID, quantity, used
-                    FROM parts
-                    WHERE partName = ?
-                      AND brandID = ?
-                      AND serialNumber IS NULL
-                      AND status = 'available'
-                    ORDER BY createdAt ASC, partID ASC
-                    FOR UPDATE
-                ");
-                $getStmt->bind_param("si", $partName, $productBrandID);
+                if ($sizeID > 0 && $typeID > 0) {
+                    $getStmt = $conn->prepare("
+                        SELECT partID, regionID, batchName, brandID, sizeID, typeID, quantity, used
+                        FROM parts
+                        WHERE partName = ?
+                          AND brandID = ?
+                          AND sizeID = ?
+                          AND typeID = ?
+                          AND serialNumber IS NULL
+                          AND status = 'available'
+                        ORDER BY createdAt ASC, partID ASC
+                        FOR UPDATE
+                    ");
+                    $getStmt->bind_param("siii", $partName, $productBrandID, $sizeID, $typeID);
+                } elseif ($sizeID > 0) {
+                    $getStmt = $conn->prepare("
+                        SELECT partID, regionID, batchName, brandID, sizeID, typeID, quantity, used
+                        FROM parts
+                        WHERE partName = ?
+                          AND brandID = ?
+                          AND sizeID = ?
+                          AND serialNumber IS NULL
+                          AND status = 'available'
+                        ORDER BY createdAt ASC, partID ASC
+                        FOR UPDATE
+                    ");
+                    $getStmt->bind_param("sii", $partName, $productBrandID, $sizeID);
+                } elseif ($typeID > 0) {
+                    $getStmt = $conn->prepare("
+                        SELECT partID, regionID, batchName, brandID, sizeID, typeID, quantity, used
+                        FROM parts
+                        WHERE partName = ?
+                          AND brandID = ?
+                          AND typeID = ?
+                          AND serialNumber IS NULL
+                          AND status = 'available'
+                        ORDER BY createdAt ASC, partID ASC
+                        FOR UPDATE
+                    ");
+                    $getStmt->bind_param("sii", $partName, $productBrandID, $typeID);
+                } else {
+                    $getStmt = $conn->prepare("
+                        SELECT partID, regionID, batchName, brandID, sizeID, typeID, quantity, used
+                        FROM parts
+                        WHERE partName = ?
+                          AND brandID = ?
+                          AND serialNumber IS NULL
+                          AND status = 'available'
+                        ORDER BY createdAt ASC, partID ASC
+                        FOR UPDATE
+                    ");
+                    $getStmt->bind_param("si", $partName, $productBrandID);
+                }
                 $getStmt->execute();
                 $result = $getStmt->get_result();
 
@@ -172,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $remaining = $quantity;
                 $updateAvailableStmt = $conn->prepare("UPDATE parts SET quantity = ?, updatedAt = NOW() WHERE partID = ?");
                 $updateUsedStmt = $conn->prepare("UPDATE parts SET quantity = ?, used = ?, status = 'used', issuedToSerialNumber = ?, issuedDate = NOW(), updatedAt = NOW() WHERE partID = ?");
-                $insertUsedStmt = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, brandID, quantity, used, status, issuedToSerialNumber, issuedDate, createdAt, updatedAt) VALUES (?, NULL, ?, ?, ?, ?, ?, 'used', ?, NOW(), NOW(), NOW())");
+                $insertUsedStmt = $conn->prepare("INSERT INTO parts (partName, serialNumber, regionID, batchName, brandID, sizeID, typeID, quantity, used, status, issuedToSerialNumber, issuedDate, createdAt, updatedAt) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 'used', ?, NOW(), NOW(), NOW())");
 
                 foreach ($rows as $row) {
                     if ($remaining <= 0) {
@@ -194,7 +238,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $rowRegionID = intval($row['regionID']);
                         $rowBatchName = $row['batchName'];
                         $rowBrandID = intval($row['brandID']);
-                        $insertUsedStmt->bind_param("sisiiis", $partName, $rowRegionID, $rowBatchName, $rowBrandID, $useNow, $useNow, $productSerial);
+                        $rowSizeID = intval($row['sizeID']);
+                        $rowTypeID = intval($row['typeID']);
+                        $insertUsedStmt->bind_param("sisiiiiis", $partName, $rowRegionID, $rowBatchName, $rowBrandID, $rowSizeID, $rowTypeID, $useNow, $useNow, $productSerial);
                         if (!$insertUsedStmt->execute()) {
                             throw new Exception("Failed to log used quantity for part: $partName");
                         }

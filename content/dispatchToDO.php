@@ -258,20 +258,20 @@ if (isset($adminRole) && $adminRole === 'user') {
 
 <div class="dispatch-container">
     <div class="dispatch-header">
-        <h2>📦 Dispatch to Distributing Officer</h2>
+        <h2>📦 Dispatch </h2>
         <p style="margin: 0; opacity: 0.9;">Scan products and create distribution record</p>
     </div>
 
     <form id="dispatchForm">
         <!-- DO Selection Card -->
         <div class="form-card">
-            <div class="card-title">👤 Select Distributing Officer</div>
+            <div class="card-title">👤 Select Warehouse</div>
             
             <div class="form-row">
                 <div class="form-group">
-                    <label for="DO_ID">Distributing Officer *</label>
+                    <label for="DO_ID">Warehouse *</label>
                     <select id="DO_ID" name="DO_ID" class="form-control" required>
-                        <option value="">Select Distributing Officer</option>
+                        <option value="">Select Warehouse</option>
                         <?php foreach ($officers as $officer): ?>
                             <?php 
                             $hasPending = $officer['pendingAmount'] > 0;
@@ -399,7 +399,7 @@ if (isset($adminRole) && $adminRole === 'user') {
     $(document).ready(function() {
         // Initialize Select2 for DO dropdown
         $('#DO_ID').select2({
-            placeholder: 'Select Distributing Officer',
+            placeholder: 'Select Warehouse',
             allowClear: true,
             width: '100%'
         });
@@ -654,7 +654,7 @@ if (isset($adminRole) && $adminRole === 'user') {
             Swal.fire({
                 icon: 'error',
                 title: 'Error!',
-                text: 'Please select a Distributing Officer'
+                text: 'Please select a Warehouse'
             });
             return;
         }
@@ -679,7 +679,7 @@ if (isset($adminRole) && $adminRole === 'user') {
         }
         
         // Prepare data
-        const formData = {
+        var formData = {
             DO_ID: $('#DO_ID').val(),
             saleDate: $('#saleDate').val(),
             items: scannedItems,

@@ -461,9 +461,9 @@ $totalPending = array_sum(array_column($pendingDispatches, 'pendingAmount'));
     
     function submitPayment(event) {
         event.preventDefault();
-        const formData = new FormData(event.target);
-        const pendingAmount = parseFloat($('#pendingAmountDisplay').text());
-        const paymentAmount = parseFloat(formData.get('paymentAmount'));
+        var formData = new FormData(event.target);
+        var pendingAmount = parseFloat($('#pendingAmountDisplay').text());
+        var paymentAmount = parseFloat(formData.get('paymentAmount'));
         
         if (paymentAmount > pendingAmount) {
             Swal.fire({ icon: 'warning', title: 'Invalid Amount', text: 'Payment amount cannot exceed pending amount (RS ' + pendingAmount.toFixed(2) + ')' });

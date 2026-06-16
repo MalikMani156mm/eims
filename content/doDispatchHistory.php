@@ -292,7 +292,7 @@ if ($result) {
 
 <div class="history-container">
     <div class="history-header">
-        <h2>📚 DO Dispatch History</h2>
+        <h2>📚 Dispatch History</h2>
         <p style="margin: 0; opacity: 0.9;">Complete record of all dispatches to distributing officers</p>
     </div>
     
@@ -317,7 +317,7 @@ if ($result) {
     
     <div class="table-card">
         <div class="table-toolbar">
-            <input type="text" id="searchHistory" class="search-box" placeholder="🔍 Search by DO name, CNIC, or Sale ID..." style="margin-bottom: 0;">
+            <input type="text" id="searchHistory" class="search-box" placeholder="🔍 Search by name, CNIC, or Sale ID..." style="margin-bottom: 0;">
             <button type="button" class="btn-export" onclick="exportDoDispatchHistoryCSV()">Export CSV</button>
         </div>
         
@@ -326,7 +326,7 @@ if ($result) {
                 <tr>
                     <th>Sale ID</th>
                     <th>Date</th>
-                    <th>DO Name</th>
+                    <th>Name</th>
                     <th>CNIC</th>
                     <th>Items</th>
                     <th>Grand Total</th>
@@ -619,7 +619,7 @@ if ($result) {
                     </div>
                 </div>
                 <div>
-                    <h4 style="margin: 0 0 15px 0; color: #667eea;">DO Information</h4>
+                    <h4 style="margin: 0 0 15px 0; color: #667eea;">Information</h4>
                     <div class="detail-row">
                         <span class="detail-label">Name:</span>
                         <span class="detail-value">${data.sale.DO_Name}</span>
@@ -733,9 +733,9 @@ if ($result) {
     function submitPayment(event) {
         event.preventDefault();
         
-        const formData = new FormData(event.target);
-        const pendingAmount = parseFloat($('#pendingAmountDisplay').text());
-        const paymentAmount = parseFloat(formData.get('paymentAmount'));
+        var formData = new FormData(event.target);
+        var pendingAmount = parseFloat($('#pendingAmountDisplay').text());
+        var paymentAmount = parseFloat(formData.get('paymentAmount'));
         
         if (paymentAmount > pendingAmount) {
             Swal.fire({

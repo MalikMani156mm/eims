@@ -15,7 +15,7 @@ if (!$data) {
 
 // Validate required fields
 if (empty($data['DO_ID'])) {
-    echo json_encode(['success' => false, 'message' => 'Distributing Officer is required']);
+    echo json_encode(['success' => false, 'message' => 'Warehouse is required']);
     exit;
 }
 

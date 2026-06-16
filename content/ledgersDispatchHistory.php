@@ -619,9 +619,9 @@ if ($result) {
     function submitPayment(event) {
         event.preventDefault();
         
-        const formData = new FormData(event.target);
-        const pendingAmount = parseFloat($('#pendingAmountDisplay').text());
-        const paymentAmount = parseFloat(formData.get('paymentAmount'));
+        var formData = new FormData(event.target);
+        var pendingAmount = parseFloat($('#pendingAmountDisplay').text());
+        var paymentAmount = parseFloat(formData.get('paymentAmount'));
         
         if (paymentAmount > pendingAmount) {
             Swal.fire({

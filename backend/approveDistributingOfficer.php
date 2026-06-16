@@ -22,12 +22,12 @@ try {
     $check->execute();
     $res = $check->get_result();
     if (!$res || $res->num_rows === 0) {
-        echo json_encode(['success' => false, 'message' => 'Officer not found']);
+        echo json_encode(['success' => false, 'message' => 'Warehouse not found']);
         exit;
     }
     $row = $res->fetch_assoc();
     if ((int)$row['status'] !== 1) {
-        echo json_encode(['success' => false, 'message' => 'Officer is not pending approval']);
+        echo json_encode(['success' => false, 'message' => 'Warehouse is not pending approval']);
         exit;
     }
     $check->close();
@@ -37,7 +37,7 @@ try {
     $approver = isset($ID) ? intval($ID) : 0;
     $stmt->bind_param('ii', $approver, $officerID);
     if ($stmt->execute()) {
-        echo json_encode(['success' => true, 'message' => 'Officer approved']);
+        echo json_encode(['success' => true, 'message' => 'Warehouse approved']);
     } else {
         echo json_encode(['success' => false, 'message' => 'Failed to approve: ' . $stmt->error]);
     }

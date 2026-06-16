@@ -71,7 +71,7 @@ $conn->close();
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DO Dispatch Receipt #<?php echo str_pad($saleID, 6, '0', STR_PAD_LEFT); ?></title>
+    <title>Dispatch Receipt #<?php echo str_pad($saleID, 6, '0', STR_PAD_LEFT); ?></title>
     <style>
         * {
             margin: 0;
@@ -309,7 +309,7 @@ $conn->close();
         
         <div class="receipt-info-grid">
             <div class="info-section">
-                <h3>📋 Distributing Officer Details</h3>
+                <h3>📋 Warehouse Details</h3>
                 <div class="info-row">
                     <span class="info-label">Name:</span>
                     <span class="info-value"><?php echo htmlspecialchars($sale['DO_Name']); ?></span>

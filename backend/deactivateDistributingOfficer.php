@@ -19,9 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             if ($stmt->affected_rows > 0) {
-                echo json_encode(['success' => true, 'message' => 'Officer deactivated successfully']);
+                echo json_encode(['success' => true, 'message' => 'Warehouse deactivated successfully']);
             } else {
-                echo json_encode(['success' => false, 'message' => 'Officer not found or already inactive']);
+                echo json_encode(['success' => false, 'message' => 'Warehouse not found or already inactive']);
             }
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to deactivate officer: ' . $stmt->error]);

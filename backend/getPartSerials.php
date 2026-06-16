@@ -10,6 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $partName = trim($_POST['partName'] ?? '');
 $regionID = intval($_POST['regionID'] ?? 0);
+$sizeID = intval($_POST['sizeID'] ?? 0);
+$typeID = intval($_POST['typeID'] ?? 0);
 
 if ($partName === '' || $regionID <= 0) {
     echo json_encode(['success' => false, 'message' => 'Missing parameters']);
@@ -27,19 +29,63 @@ try {
 
     // Aggregate by serialNumber but keep per-status sums so a serial can appear
     // in both available and used lists if there are rows with different statuses.
-    $stmt = $conn->prepare(
-        "SELECT
-            serialNumber,
-            SUM(CASE WHEN status = 'available' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS avail_qty,
-            SUM(CASE WHEN status = 'used' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS used_qty,
-            MIN(createdAt) AS createdAt,
-            MAX(issuedDate) AS issuedDate
-        FROM parts
-        WHERE partName = ? AND regionID = ?
-        GROUP BY serialNumber
-        ORDER BY COALESCE(serialNumber, '') ASC, createdAt ASC"
-    );
-    $stmt->bind_param('si', $partName, $regionID);
+    if ($sizeID > 0 && $typeID > 0) {
+        $stmt = $conn->prepare(
+            "SELECT
+                serialNumber,
+                SUM(CASE WHEN status = 'available' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS avail_qty,
+                SUM(CASE WHEN status = 'used' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS used_qty,
+                MIN(createdAt) AS createdAt,
+                MAX(issuedDate) AS issuedDate
+            FROM parts
+            WHERE partName = ? AND regionID = ? AND sizeID = ? AND typeID = ?
+            GROUP BY serialNumber
+            ORDER BY COALESCE(serialNumber, '') ASC, createdAt ASC"
+        );
+        $stmt->bind_param('siii', $partName, $regionID, $sizeID, $typeID);
+    } elseif ($sizeID > 0) {
+        $stmt = $conn->prepare(
+            "SELECT
+                serialNumber,
+                SUM(CASE WHEN status = 'available' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS avail_qty,
+                SUM(CASE WHEN status = 'used' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS used_qty,
+                MIN(createdAt) AS createdAt,
+                MAX(issuedDate) AS issuedDate
+            FROM parts
+            WHERE partName = ? AND regionID = ? AND sizeID = ?
+            GROUP BY serialNumber
+            ORDER BY COALESCE(serialNumber, '') ASC, createdAt ASC"
+        );
+        $stmt->bind_param('sii', $partName, $regionID, $sizeID);
+    } elseif ($typeID > 0) {
+        $stmt = $conn->prepare(
+            "SELECT
+                serialNumber,
+                SUM(CASE WHEN status = 'available' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS avail_qty,
+                SUM(CASE WHEN status = 'used' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS used_qty,
+                MIN(createdAt) AS createdAt,
+                MAX(issuedDate) AS issuedDate
+            FROM parts
+            WHERE partName = ? AND regionID = ? AND typeID = ?
+            GROUP BY serialNumber
+            ORDER BY COALESCE(serialNumber, '') ASC, createdAt ASC"
+        );
+        $stmt->bind_param('sii', $partName, $regionID, $typeID);
+    } else {
+        $stmt = $conn->prepare(
+            "SELECT
+                serialNumber,
+                SUM(CASE WHEN status = 'available' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS avail_qty,
+                SUM(CASE WHEN status = 'used' THEN IF(quantity > 0, quantity, 1) ELSE 0 END) AS used_qty,
+                MIN(createdAt) AS createdAt,
+                MAX(issuedDate) AS issuedDate
+            FROM parts
+            WHERE partName = ? AND regionID = ?
+            GROUP BY serialNumber
+            ORDER BY COALESCE(serialNumber, '') ASC, createdAt ASC"
+        );
+        $stmt->bind_param('si', $partName, $regionID);
+    }
     $stmt->execute();
     $res = $stmt->get_result();
 

@@ -730,7 +730,7 @@ require __DIR__ . '/../db.php';
         }
         
         // Prepare data
-        const formData = {
+        var formData = {
             ledgerName: ledgerName,
             ledgerCNIC: $('#ledgerCNIC').val() || null,
             ledgerContact: $('#ledgerContact').val() || null,

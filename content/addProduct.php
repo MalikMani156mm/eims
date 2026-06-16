@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/../adminAuth.php';
 require __DIR__ . '/../db.php';
+require __DIR__ . '/../backend/partGroupHelpers.php';
 
 // Fetch all categories for dropdown
 $categories = [];
@@ -56,43 +57,10 @@ if ($regionsResult) {
     }
 }
 
-// Fetch all parts (both with and without serial numbers)
-$partsWithSerial = [];
-$partsWithoutSerial = [];
-$partsResult = $conn->query("
-    SELECT DISTINCT partName FROM parts ORDER BY partName ASC
-");
-if ($partsResult) {
-    while ($row = $partsResult->fetch_assoc()) {
-        $partName = $row['partName'];
-
-        // Check if this part has any serial numbers
-        $serialCheck = $conn->query("SELECT COUNT(*) as count FROM parts WHERE partName = '$partName' AND serialNumber IS NOT NULL LIMIT 1");
-        $serialCount = $serialCheck->fetch_assoc()['count'];
-
-        if ($serialCount > 0) {
-            // Parts with serials - get all available records with serial numbers
-            $serialParts = [];
-            $serialPartResult = $conn->query("SELECT partID, partName, serialNumber, batchName FROM parts WHERE partName = '$partName' AND serialNumber IS NOT NULL AND status = 'available' ORDER BY serialNumber ASC");
-            if ($serialPartResult) {
-                while ($p = $serialPartResult->fetch_assoc()) {
-                    $serialParts[] = $p;
-                }
-            }
-            if (!empty($serialParts)) {
-                $partsWithSerial[$partName] = $serialParts;
-            }
-        } else {
-            // Parts without serials - get available quantity, supporting both
-            // one-row-per-item records and older aggregate quantity rows.
-            $noSerialCheck = $conn->query("SELECT SUM(CASE WHEN quantity > 0 THEN quantity ELSE 1 END) as count FROM parts WHERE partName = '$partName' AND serialNumber IS NULL AND status = 'available'");
-            $noSerialCount = $noSerialCheck->fetch_assoc()['count'];
-            if ($noSerialCount > 0) {
-                $partsWithoutSerial[$partName] = $noSerialCount;
-            }
-        }
-    }
-}
+// Fetch all parts (both with and without serial numbers), grouped by name + size + type
+$partsGroups = loadPartsGroupsForBrand($conn, 0);
+$partsWithSerialGroups = $partsGroups['partsWithSerialGroups'];
+$partsWithoutSerialGroups = $partsGroups['partsWithoutSerialGroups'];
 
 // Fetch all gases with their batches
 $gases = [];
@@ -280,14 +248,20 @@ if ($result) {
                 <h4 style="margin-top: 0; color: #333; font-size: 18px;">📦 Select Parts to Issue</h4>
 
                 <!-- Parts With Serial Numbers -->
-                <?php if (!empty($partsWithSerial)): ?>
+                <?php if (!empty($partsWithSerialGroups)): ?>
                     <div style="margin-bottom: 20px;">
                         <h5 style="color: #667eea; margin-bottom: 15px;">Parts with Serial Numbers</h5>
-                        <?php foreach ($partsWithSerial as $partName => $serialParts): ?>
+                        <?php foreach ($partsWithSerialGroups as $group): ?>
+                            <?php
+                            $label = htmlspecialchars($group['label']);
+                            $partName = htmlspecialchars($group['partName']);
+                            $sizeID = (int)$group['sizeID'];
+                            $typeID = (int)$group['typeID'];
+                            ?>
                             <div class="form-group" style="margin-bottom: 15px;">
-                                <label class="form-label" style="color: black;"><?php echo htmlspecialchars($partName); ?></label>
-                                <select class="form-control parts-serial-select" data-part-name="<?php echo htmlspecialchars($partName); ?>" multiple="multiple" style="width: 100%;">
-                                    <?php foreach ($serialParts as $part): ?>
+                                <label class="form-label" style="color: black;"><?php echo $label; ?></label>
+                                <select class="form-control parts-serial-select" data-part-name="<?php echo $partName; ?>" data-size-id="<?php echo $sizeID; ?>" data-type-id="<?php echo $typeID; ?>" multiple="multiple" style="width: 100%;">
+                                    <?php foreach ($group['items'] as $part): ?>
                                         <option value="<?php echo $part['partID']; ?>" data-serial="<?php echo htmlspecialchars($part['serialNumber']); ?>" data-batch="<?php echo htmlspecialchars($part['batchName']); ?>">
                                             <?php echo 'Serial No: ' . htmlspecialchars($part['serialNumber']) . ' (Batch: ' . htmlspecialchars($part['batchName']) . ')'; ?>
                                         </option>
@@ -299,16 +273,24 @@ if ($result) {
                 <?php endif; ?>
 
                 <!-- Parts Without Serial Numbers -->
-                <?php if (!empty($partsWithoutSerial)): ?>
+                <?php if (!empty($partsWithoutSerialGroups)): ?>
                     <div style="margin-top: 20px;">
                         <h5 style="color: #667eea; margin-bottom: 15px;">Parts without Serial Numbers</h5>
-                        <?php foreach ($partsWithoutSerial as $partName => $availableCount): ?>
+                        <?php foreach ($partsWithoutSerialGroups as $group): ?>
+                            <?php
+                            $label = htmlspecialchars($group['label']);
+                            $partName = htmlspecialchars($group['partName']);
+                            $sizeID = (int)$group['sizeID'];
+                            $typeID = (int)$group['typeID'];
+                            $availableCount = (int)$group['availableCount'];
+                            $groupKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $group['partName'] . '_' . $group['sizeID'] . '_' . $group['typeID']);
+                            ?>
                             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px;">
-                                <input type="checkbox" class="parts-no-serial-checkbox" data-part-name="<?php echo htmlspecialchars($partName); ?>" data-available="<?php echo $availableCount; ?>" id="checkbox_<?php echo htmlspecialchars($partName); ?>" style="width: 20px; height: 20px; cursor: pointer;">
-                                <label for="checkbox_<?php echo htmlspecialchars($partName); ?>" style="margin: 0; cursor: pointer; flex: 1; font-weight: 500;"><?php echo htmlspecialchars($partName); ?> (<?php echo $availableCount; ?> available)</label>
-                                <div id="quantity_<?php echo htmlspecialchars($partName); ?>" style="display: none; gap: 10px; align-items: center;">
+                                <input type="checkbox" class="parts-no-serial-checkbox" data-part-name="<?php echo $partName; ?>" data-size-id="<?php echo $sizeID; ?>" data-type-id="<?php echo $typeID; ?>" data-safe="<?php echo $groupKey; ?>" data-available="<?php echo $availableCount; ?>" id="checkbox_<?php echo $groupKey; ?>" style="width: 20px; height: 20px; cursor: pointer;">
+                                <label for="checkbox_<?php echo $groupKey; ?>" style="margin: 0; cursor: pointer; flex: 1; font-weight: 500;"><?php echo $label; ?> (<?php echo $availableCount; ?> available)</label>
+                                <div id="quantity_<?php echo $groupKey; ?>" style="display: none; gap: 10px; align-items: center;">
                                     <label style="margin: 0; font-size: 14px;">Quantity:</label>
-                                    <input type="number" class="parts-no-serial-qty" data-part-name="<?php echo htmlspecialchars($partName); ?>" min="1" max="<?php echo $availableCount; ?>" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <input type="number" class="parts-no-serial-qty" data-part-name="<?php echo $partName; ?>" data-size-id="<?php echo $sizeID; ?>" data-type-id="<?php echo $typeID; ?>" data-safe="<?php echo $groupKey; ?>" min="1" max="<?php echo $availableCount; ?>" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -528,6 +510,50 @@ if ($result) {
         return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
+    function buildAutoSerialNumbers(productID, quantity, batchNumber) {
+        const qty = parseInt(quantity, 10) || 1;
+        const pid = String(productID);
+
+        if (qty === 1) {
+            return [pid];
+        }
+
+        const batch = String(batchNumber || 'batch').replace(/\s+/g, '-');
+        const serials = [];
+        for (let i = 1; i <= qty; i++) {
+            serials.push(pid + '-' + batch + '-' + i);
+        }
+        return serials;
+    }
+
+    function submitNewProductWithAutoSerial(quantity) {
+        $.ajax({
+            url: 'backend/saveProduct.php',
+            type: 'POST',
+            data: $.param(productFormData),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.productID) {
+                    const serialNumbers = buildAutoSerialNumbers(response.productID, quantity, response.batchNumber);
+                    saveSerialNumbers(response.productID, response.batchNumber, serialNumbers);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: response.message || 'Failed to add product'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'Failed to add product'
+                });
+            }
+        });
+    }
+
     $(document).ready(function() {
         // Remove stale delegated handlers from previous AJAX loads of this page
         $(document).off('.addProduct');
@@ -541,8 +567,8 @@ if ($result) {
 
         // Handle checkboxes for parts without serial numbers
         $(document).on('change.addProduct', '.parts-no-serial-checkbox', function() {
-            const partName = $(this).data('part-name');
-            const quantityDiv = $('#quantity_' + partName.replace(/\s+/g, '_'));
+            const safe = $(this).data('safe') || sanitizeId(String($(this).data('part-name')) + '_' + String($(this).data('size-id')) + '_' + String($(this).data('type-id')));
+            const quantityDiv = $('#quantity_' + safe);
 
             if ($(this).is(':checked')) {
                 quantityDiv.show();
@@ -694,12 +720,17 @@ if ($result) {
             // Collect parts without serial numbers
             $('.parts-no-serial-checkbox:checked').each(function() {
                 const partName = $(this).data('part-name');
-                const quantityInput = $('.parts-no-serial-qty[data-part-name="' + partName + '"]');
-                const quantity = parseInt(quantityInput.val()) || 0;
+                const sizeID = parseInt($(this).data('size-id'), 10) || 0;
+                const typeID = parseInt($(this).data('type-id'), 10) || 0;
+                const safe = $(this).data('safe');
+                const quantityInput = $('.parts-no-serial-qty[data-safe="' + safe + '"]');
+                const quantity = parseInt(quantityInput.val(), 10) || 0;
 
                 if (quantity > 0) {
                     partsData.withoutSerial.push({
                         partName: partName,
+                        sizeID: sizeID,
+                        typeID: typeID,
                         quantity: quantity
                     });
                 }
@@ -757,7 +788,7 @@ if ($result) {
                         Swal.fire('Error', res.message || 'Failed to fetch parts', 'error');
                         return;
                     }
-                    renderPartsSelection(res.partsWithSerial, res.partsWithoutSerial);
+                    renderPartsSelection(res.partsWithSerialGroups, res.partsWithoutSerialGroups);
                 },
                 error: function() {
                     Swal.fire('Error', 'Failed to fetch parts', 'error');
@@ -765,19 +796,18 @@ if ($result) {
             });
         }
 
-        function renderPartsSelection(partsWithSerial, partsWithoutSerial) {
-            let html = '';
+        function renderPartsSelection(partsWithSerialGroups, partsWithoutSerialGroups) {
+            let html = '<h4 style="margin-top: 0; color: #333; font-size: 18px;">📦 Select Parts to Issue</h4>';
 
             // Parts with serials
-            if (Object.keys(partsWithSerial).length > 0) {
+            if (partsWithSerialGroups && partsWithSerialGroups.length > 0) {
                 html += '<div style="margin-bottom: 20px;">';
                 html += '<h5 style="color: #667eea; margin-bottom: 15px;">Parts with Serial Numbers</h5>';
-                for (const partName in partsWithSerial) {
-                    const serialParts = partsWithSerial[partName];
+                for (const group of partsWithSerialGroups) {
                     html += '<div class="form-group" style="margin-bottom: 15px;">';
-                    html += '<label class="form-label" style="color: black;">' + escapeHtml(partName) + '</label>';
-                    html += '<select class="form-control parts-serial-select" data-part-name="' + escapeHtml(partName) + '" multiple="multiple" style="width: 100%;">';
-                    for (const p of serialParts) {
+                    html += '<label class="form-label" style="color: black;">' + escapeHtml(group.label) + '</label>';
+                    html += '<select class="form-control parts-serial-select" data-part-name="' + escapeHtml(group.partName) + '" data-size-id="' + group.sizeID + '" data-type-id="' + group.typeID + '" multiple="multiple" style="width: 100%;">';
+                    for (const p of group.items) {
                         html += '<option value="' + p.partID + '" data-serial="' + escapeHtml(p.serialNumber) + '" data-batch="' + escapeHtml(p.batchName) + '">';
                         html += 'Serial No: ' + escapeHtml(p.serialNumber) + ' (Batch: ' + escapeHtml(p.batchName) + ')';
                         html += '</option>';
@@ -788,18 +818,18 @@ if ($result) {
             }
 
             // Parts without serials
-            if (Object.keys(partsWithoutSerial).length > 0) {
+            if (partsWithoutSerialGroups && partsWithoutSerialGroups.length > 0) {
                 html += '<div style="margin-top: 20px;">';
                 html += '<h5 style="color: #667eea; margin-bottom: 15px;">Parts without Serial Numbers</h5>';
-                for (const partName in partsWithoutSerial) {
-                    const availableCount = partsWithoutSerial[partName];
-                    const safeId = sanitizeId(partName);
+                for (const group of partsWithoutSerialGroups) {
+                    const safeId = sanitizeId(group.partName + '_' + group.sizeID + '_' + group.typeID);
+                    const availableCount = group.availableCount;
                     html += '<div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px;">';
-                    html += '<input type="checkbox" class="parts-no-serial-checkbox" data-part-name="' + escapeHtml(partName) + '" data-safe="' + safeId + '" data-available="' + availableCount + '" id="checkbox_' + safeId + '" style="width: 20px; height: 20px; cursor: pointer;">';
-                    html += '<label for="checkbox_' + safeId + '" style="margin: 0; cursor: pointer; flex: 1; font-weight: 500;">' + escapeHtml(partName) + ' (' + availableCount + ' available)</label>';
+                    html += '<input type="checkbox" class="parts-no-serial-checkbox" data-part-name="' + escapeHtml(group.partName) + '" data-size-id="' + group.sizeID + '" data-type-id="' + group.typeID + '" data-safe="' + safeId + '" data-available="' + availableCount + '" id="checkbox_' + safeId + '" style="width: 20px; height: 20px; cursor: pointer;">';
+                    html += '<label for="checkbox_' + safeId + '" style="margin: 0; cursor: pointer; flex: 1; font-weight: 500;">' + escapeHtml(group.label) + ' (' + availableCount + ' available)</label>';
                     html += '<div id="quantity_' + safeId + '" style="display: none; gap: 10px; align-items: center;">';
                     html += '<label style="margin: 0; font-size: 14px;">Quantity:</label>';
-                    html += '<input type="number" class="parts-no-serial-qty" data-part-name="' + escapeHtml(partName) + '" data-safe="' + safeId + '" min="1" max="' + availableCount + '" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">';
+                    html += '<input type="number" class="parts-no-serial-qty" data-part-name="' + escapeHtml(group.partName) + '" data-size-id="' + group.sizeID + '" data-type-id="' + group.typeID + '" data-safe="' + safeId + '" min="1" max="' + availableCount + '" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">';
                     html += '</div></div>';
                 }
                 html += '</div>';
@@ -859,8 +889,8 @@ if ($result) {
                 value: JSON.stringify(gasData)
             });
 
-            // Open serial numbers modal
-            openSerialModal(quantity);
+            // Auto-use productID as serial number(s) — no manual entry modal
+            submitNewProductWithAutoSerial(quantity);
         });
 
         // Handle serial numbers form submission
@@ -1110,7 +1140,7 @@ if ($result) {
     $('#updateProductForm').on('submit', function(e) {
         e.preventDefault();
 
-        const formData = $(this).serialize();
+        var formData = $(this).serialize();
 
         $.ajax({
             url: 'backend/updateProductBatch.php',
@@ -1120,13 +1150,21 @@ if ($result) {
             success: function(response) {
                 if (response.success) {
                     closeUpdateModal();
-                    // Open serial numbers modal for the new quantity
                     updateProductData = {
                         productID: response.productID,
                         batchNumber: response.batchNumber,
                         quantity: response.quantity
                     };
-                    openSerialModalForUpdate(response.quantity, response.batchNumber);
+                    productFormData = [
+                        { name: 'partsData', value: '{}' },
+                        { name: 'gasData', value: '[]' }
+                    ];
+                    const serialNumbers = buildAutoSerialNumbers(
+                        response.productID,
+                        response.quantity,
+                        response.batchNumber
+                    );
+                    saveSerialNumbers(response.productID, response.batchNumber, serialNumbers);
                 } else {
                     Swal.fire({
                         icon: 'error',

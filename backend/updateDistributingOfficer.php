@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             if ($stmt->affected_rows > 0) {
-                echo json_encode(['success' => true, 'message' => 'Officer updated successfully']);
+                echo json_encode(['success' => true, 'message' => 'Warehouse updated successfully']);
             } else {
                 echo json_encode(['success' => false, 'message' => 'No changes made or officer not found']);
             }

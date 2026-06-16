@@ -34,7 +34,7 @@ if ($res) {
 
 <div class="approval-container">
     <div class="approval-header">
-        <h2 style="margin:0">✅ Distributing Officers — Pending Approval</h2>
+        <h2 style="margin:0">✅ Pending Approval</h2>
         <p style="margin:6px 0 0 0; opacity:0.9">Review and approve new distributing officers</p>
     </div>
 
@@ -53,7 +53,7 @@ if ($res) {
             </thead>
             <tbody>
                 <?php if (empty($officers)): ?>
-                    <tr><td colspan="7" style="padding:18px; text-align:center; color:#666">No pending officers</td></tr>
+                    <tr><td colspan="7" style="padding:18px; text-align:center; color:#666">No pending approvals</td></tr>
                 <?php else: ?>
                     <?php $i = 1; foreach ($officers as $off): ?>
                         <tr>
@@ -80,7 +80,7 @@ if ($res) {
 <div id="doViewModal" style="display:none; position:fixed; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999;">
     <div style="max-width:700px; margin:6% auto; background:white; border-radius:12px; overflow:hidden;">
         <div style="background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; padding:16px; position:relative;">
-            <h3 id="doViewTitle" style="margin:0">Officer</h3>
+            <h3 id="doViewTitle" style="margin:0">Warehouse</h3>
             <button onclick="$('#doViewModal').hide()" style="position:absolute; right:12px; top:12px; background:rgba(255,255,255,0.2); border:0; color:#fff; width:36px; height:36px; border-radius:50%">&times;</button>
         </div>
         <div id="doViewBody" style="padding:18px;"></div>
@@ -125,7 +125,7 @@ function approveDO(id, btn) {
         $(btn).prop('disabled', true).text('Approving...');
         $.post('backend/approveDistributingOfficer.php', { officerID: id }, function(resp){
             if (resp && resp.success) {
-                Swal.fire('Approved','Officer approved','success').then(()=> location.reload());
+                Swal.fire('Approved','Warehouse approved','success').then(()=> location.reload());
             } else {
                 Swal.fire('Error', resp && resp.message ? resp.message : 'Failed','error');
                 $(btn).prop('disabled', false).text('Approve');
@@ -135,7 +135,7 @@ function approveDO(id, btn) {
 }
 
 function confirmDelete(id, btn){
-    Swal.fire({ title:'Delete officer?', text:'This action cannot be undone.', icon:'warning', showCancelButton:true }).then(r=>{ if(!r.isConfirmed) return; $(btn).prop('disabled',true).text('Deleting...'); $.post('backend/deleteDistributingOfficer.php',{officerID:id}, function(resp){ if(resp && resp.success){ Swal.fire('Deleted','Officer removed','success').then(()=> location.reload()); } else { Swal.fire('Error', resp && resp.message ? resp.message : 'Failed','error'); $(btn).prop('disabled',false).text('Delete'); } }, 'json').fail(()=>{ Swal.fire('Error','Server error','error'); $(btn).prop('disabled',false).text('Delete'); }); });
+    Swal.fire({ title:'Delete officer?', text:'This action cannot be undone.', icon:'warning', showCancelButton:true }).then(r=>{ if(!r.isConfirmed) return; $(btn).prop('disabled',true).text('Deleting...'); $.post('backend/deleteDistributingOfficer.php',{officerID:id}, function(resp){ if(resp && resp.success){ Swal.fire('Deleted','Warehouse removed','success').then(()=> location.reload()); } else { Swal.fire('Error', resp && resp.message ? resp.message : 'Failed','error'); $(btn).prop('disabled',false).text('Delete'); } }, 'json').fail(()=>{ Swal.fire('Error','Server error','error'); $(btn).prop('disabled',false).text('Delete'); }); });
 }
 </script>
 

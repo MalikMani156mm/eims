@@ -159,7 +159,6 @@ if ($regionsResult) {
             </div>
 
             <?php if (!isset($adminRole) || $adminRole !== 'user'): ?>
-            <!-- Distributing Officers Stats -->
             <div style="margin-bottom: 10px; padding: 10px 0 5px 0;">
                 <h4 style="color: #667eea; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
                     🚚 Ware Houses

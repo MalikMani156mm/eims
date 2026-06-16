@@ -10,6 +10,24 @@ if ($brandsResult) {
         $brands[] = $row;
     }
 }
+
+// Fetch all sizes for dropdown
+$sizes = [];
+$sizesResult = $conn->query("SELECT sizeID, sizeName FROM sizes ORDER BY sizeName ASC");
+if ($sizesResult) {
+    while ($row = $sizesResult->fetch_assoc()) {
+        $sizes[] = $row;
+    }
+}
+
+// Fetch all types for dropdown
+$types = [];
+$typesResult = $conn->query("SELECT typeID, typeName FROM types WHERE status = 0 ORDER BY typeName ASC");
+if ($typesResult) {
+    while ($row = $typesResult->fetch_assoc()) {
+        $types[] = $row;
+    }
+}
 ?>
 
 <div class="container">
@@ -39,6 +57,30 @@ if ($brandsResult) {
                             <?php foreach ($brands as $brand): ?>
                                 <option value="<?php echo $brand['brandID']; ?>">
                                     <?php echo htmlspecialchars($brand['brandName']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sizeID" class="form-label" style="color: black;">Tonnage / Size *</label>
+                        <select id="sizeID" name="sizeID" class="form-control" required>
+                            <option value="">Select Size</option>
+                            <?php foreach ($sizes as $size): ?>
+                                <option value="<?php echo $size['sizeID']; ?>">
+                                    <?php echo htmlspecialchars($size['sizeName']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="typeID" class="form-label" style="color: black;">Type *</label>
+                        <select id="typeID" name="typeID" class="form-control" required>
+                            <option value="">Select Type</option>
+                            <?php foreach ($types as $type): ?>
+                                <option value="<?php echo $type['typeID']; ?>">
+                                    <?php echo htmlspecialchars($type['typeName']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -89,6 +131,14 @@ if ($brandsResult) {
                         <div style="font-size: 16px; font-weight: 600; color: #333;" id="displayBrandName">-</div>
                     </div>
                     <div>
+                        <div style="font-size: 12px; color: #999; margin-bottom: 5px;">TONNAGE / SIZE</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #333;" id="displaySizeName">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: #999; margin-bottom: 5px;">TYPE</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #333;" id="displayTypeName">-</div>
+                    </div>
+                    <div>
                         <div style="font-size: 12px; color: #999; margin-bottom: 5px;">QUANTITY</div>
                         <div style="font-size: 16px; font-weight: 600; color: #667eea;" id="displayQuantity">-</div>
                     </div>
@@ -126,7 +176,7 @@ if ($brandsResult) {
 </div>
 
 <script>
-    let formData = {};
+    var formData = {};
 
     $(document).on('submit', '#addPartsForm', function(e) {
         e.preventDefault();
@@ -135,6 +185,8 @@ if ($brandsResult) {
             partName: $('#partName').val().trim(),
             batchName: $('#batchName').val().trim(),
             brandID: parseInt($('#brandID').val()),
+            sizeID: parseInt($('#sizeID').val()),
+            typeID: parseInt($('#typeID').val()),
             quantity: parseInt($('#quantity').val())
         };
 
@@ -150,6 +202,16 @@ if ($brandsResult) {
 
         if (formData.brandID <= 0) {
             Swal.fire('Error', 'Brand is required', 'error');
+            return;
+        }
+
+        if (formData.sizeID <= 0) {
+            Swal.fire('Error', 'Size is required', 'error');
+            return;
+        }
+
+        if (formData.typeID <= 0) {
+            Swal.fire('Error', 'Type is required', 'error');
             return;
         }
 
@@ -181,6 +243,10 @@ if ($brandsResult) {
         $('#displayBatchName').text(formData.batchName);
         const brandText = $('#brandID option:selected').text();
         $('#displayBrandName').text(brandText);
+        const sizeText = $('#sizeID option:selected').text();
+        $('#displaySizeName').text(sizeText);
+        const typeText = $('#typeID option:selected').text();
+        $('#displayTypeName').text(typeText);
         $('#displayQuantity').text(formData.quantity);
 
         // Generate input fields for multiple serials
@@ -258,6 +324,8 @@ if ($brandsResult) {
                     partName: formData.partName,
                     batchName: formData.batchName,
                     brandID: formData.brandID,
+                    sizeID: formData.sizeID,
+                    typeID: formData.typeID,
                     quantity: formData.quantity,
                     noSerial: true
                 }),
@@ -292,6 +360,8 @@ if ($brandsResult) {
                 partName: formData.partName,
                 batchName: formData.batchName,
                 brandID: formData.brandID,
+                sizeID: formData.sizeID,
+                typeID: formData.typeID,
                 quantity: formData.quantity,
                 serialNumbers: serialNumbers
             }),

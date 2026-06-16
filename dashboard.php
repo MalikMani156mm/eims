@@ -586,7 +586,7 @@ if ($haveMultipleRegions === 1) {
 
         $('#changePasswordForm').on('submit', function(e) {
             e.preventDefault();
-            const formData = $(this).serialize();
+            var formData = $(this).serialize();
 
             $.post('updatePassword.php', formData, function(response) {
                 if (response.success) {

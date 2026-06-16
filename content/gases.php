@@ -66,6 +66,35 @@ if ($logsResult) {
         $gasLogs[] = $row;
     }
 }
+
+// Gas allocation summary by brand (brandID from products via product_id)
+$brandGasAllocations = [];
+$brandResult = $conn->query("
+    SELECT
+        b.brandID,
+        b.brandName,
+        COUNT(gl.gas_log_id) AS allocation_count,
+        COALESCE(SUM(gl.quantity_used), 0) AS total_gas_quantity,
+        COALESCE(SUM(gl.total_price), 0) AS total_amount,
+        CASE
+            WHEN COALESCE(SUM(gl.quantity_used), 0) > 0
+            THEN COALESCE(SUM(gl.total_price), 0) / SUM(gl.quantity_used)
+            ELSE 0
+        END AS avg_unit_cost
+    FROM gas_logs gl
+    INNER JOIN products p ON gl.product_id = p.productID
+    INNER JOIN brands b ON p.brandID = b.brandID
+    GROUP BY b.brandID, b.brandName
+    ORDER BY total_amount DESC, b.brandName ASC
+");
+
+if ($brandResult) {
+    $brandSerial = 1;
+    while ($row = $brandResult->fetch_assoc()) {
+        $row['serial'] = $brandSerial++;
+        $brandGasAllocations[] = $row;
+    }
+}
 ?>
 
 <div class="gases-section">
@@ -189,6 +218,53 @@ if ($logsResult) {
     </div>
 </div>
 
+<!-- Gas Allocation by Brand -->
+<div class="brand-gas-section" style="margin-top: 40px; padding: 0 20px 20px;">
+    <h2 style="margin-bottom: 25px; color: #333; font-size: 24px; font-weight: 600;">🏷️ Gas Allocation by Brand</h2>
+
+    <div class="brand-gas-table" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+        <div class="table-responsive">
+            <table class="table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">#</th>
+                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Brand Name</th>
+                        <th style="padding: 12px; text-align: center; font-weight: 600; color: #333;">Allocation Entries</th>
+                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Total Gas Qty (kg)</th>
+                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Average Cost</th>
+                        <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Total Amount</th>
+                        <th style="padding: 12px; text-align: center; font-weight: 600; color: #333;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($brandGasAllocations as $brandRow): ?>
+                    <tr style="border-bottom: 1px solid #e0e0e0;">
+                        <td style="padding: 12px; color: #666;"><?php echo $brandRow['serial']; ?></td>
+                        <td style="padding: 12px;"><strong style="color: #333;"><?php echo htmlspecialchars($brandRow['brandName']); ?></strong></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                                <?php echo intval($brandRow['allocation_count']); ?>
+                            </span>
+                        </td>
+                        <td style="padding: 12px; color: #333; font-weight: 600;"><?php echo number_format($brandRow['total_gas_quantity'], 2); ?></td>
+                        <td style="padding: 12px; color: #666;">RS <?php echo number_format($brandRow['avg_unit_cost'], 2); ?></td>
+                        <td style="padding: 12px; color: #333; font-weight: 600;">RS <?php echo number_format($brandRow['total_amount'], 2); ?></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button type="button" class="btn btn-sm btn-brand-gas-logs" data-brand-id="<?php echo intval($brandRow['brandID']); ?>" data-brand-name="<?php echo htmlspecialchars($brandRow['brandName'], ENT_QUOTES, 'UTF-8'); ?>" style="padding: 6px 14px; font-size: 12px; background: #16a085; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Logs</button>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($brandGasAllocations)): ?>
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 30px; color: #999;">No brand gas allocations found. Issue gas to products to see brand summaries here.</td>
+                    </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <!-- View Gas Detail Modal -->
 <div id="viewGasDetailModal" class="modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); overflow: auto;">
     <div class="form-container" style="max-width: 700px; max-height: 90vh; overflow-y: auto; margin: 2% auto; position: relative; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
@@ -217,6 +293,24 @@ if ($logsResult) {
         </div>
         <div style="bottom: 0; background: white; padding: 20px; border-top: 2px solid #f0f0f0; text-align: center; border-radius: 0 0 16px 16px;">
             <button class="btn btn-secondary" onclick="closeGasLogsModal()" style="padding: 12px 30px; font-size: 16px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Brand Gas Allocation Logs Modal -->
+<div id="brandGasLogsModal" class="modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); overflow: auto;">
+    <div class="form-container brand-gas-logs-modal" style="max-width: 1000px; max-height: 90vh; overflow-y: auto; margin: 2% auto; position: relative; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+        <div style="position: relative; z-index: 1;">
+            <div style="top: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 16px 16px 0 0; color: white;">
+                <h2 style="margin: 0;" id="brandGasLogsModalTitle">Brand Gas Allocation Logs</h2>
+                <button type="button" onclick="closeBrandGasLogsModal()" style="position: absolute; right: 20px; top: 20px; background: rgba(255,255,255,0.2); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center;">&times;</button>
+            </div>
+            <div id="brandGasLogsContent" style="padding: 20px;">
+                <!-- Brand allocation logs will be inserted here -->
+            </div>
+            <div style="background: white; padding: 20px; border-top: 2px solid #f0f0f0; text-align: center; border-radius: 0 0 16px 16px;">
+                <button type="button" class="btn btn-secondary" onclick="closeBrandGasLogsModal()" style="padding: 12px 30px; font-size: 16px;">Close</button>
+            </div>
         </div>
     </div>
 </div>
@@ -389,6 +483,117 @@ $(document).ready(function() {
         $('body').css('overflow', 'auto');
     };
 
+    function escapeGasHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    window.viewBrandGasLogs = function(brandID, brandName) {
+        $.ajax({
+            url: 'backend/getBrandGasAllocationLogs.php',
+            type: 'GET',
+            data: { brandID: brandID },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    displayBrandGasLogs(response.data || [], response.brand || { brandName: brandName });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Failed to fetch brand gas allocation logs'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Server error while fetching brand gas allocation logs'
+                });
+            }
+        });
+    };
+
+    function displayBrandGasLogs(logs, brand) {
+        const brandName = (brand && brand.brandName) ? brand.brandName : 'Brand';
+        $('#brandGasLogsModalTitle').text('Gas Allocation Logs - ' + brandName);
+
+        let html = `
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">#</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Product Name</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Serial Number</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Gas Name</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Batch Name</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Region</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Qty Used (kg)</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Unit Price</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Total Price</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #333;">Allocated At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (!logs.length) {
+            html += `
+                <tr>
+                    <td colspan="10" style="padding: 20px; text-align: center; color: #999;">No allocation logs found for this brand.</td>
+                </tr>
+            `;
+        } else {
+            logs.forEach(function(log, index) {
+                const rowColor = index % 2 === 0 ? '#f9f9f9' : 'white';
+                html += `
+                    <tr style="background: ${rowColor}; border-bottom: 1px solid #e0e0e0;">
+                        <td style="padding: 12px; color: #666;">${index + 1}</td>
+                        <td style="padding: 12px; color: #333; font-weight: 600;">${escapeGasHtml(log.productName || 'N/A')}</td>
+                        <td style="padding: 12px; font-family: monospace; color: #333;">${escapeGasHtml(log.serial_number || 'N/A')}</td>
+                        <td style="padding: 12px; color: #333;">${escapeGasHtml(log.gas_name || 'N/A')}</td>
+                        <td style="padding: 12px; color: #666;">${escapeGasHtml(log.batchName || 'N/A')}</td>
+                        <td style="padding: 12px; color: #666;">${escapeGasHtml(log.regionName || 'N/A')}</td>
+                        <td style="padding: 12px; color: #333; font-weight: 600;">${parseFloat(log.quantity_used || 0).toFixed(2)}</td>
+                        <td style="padding: 12px; color: #666;">RS ${parseFloat(log.unit_price || 0).toFixed(2)}</td>
+                        <td style="padding: 12px; color: #333; font-weight: 600;">RS ${parseFloat(log.total_price || 0).toFixed(2)}</td>
+                        <td style="padding: 12px; color: #666; font-size: 12px;">${escapeGasHtml(log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A')}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        $('#brandGasLogsContent').html(html);
+        $('#brandGasLogsModal').fadeIn(300);
+        $('body').css('overflow', 'hidden');
+    }
+
+    window.closeBrandGasLogsModal = function() {
+        $('#brandGasLogsModal').fadeOut(300);
+        $('body').css('overflow', 'auto');
+    };
+
+    $(document).on('click', '.btn-brand-gas-logs', function() {
+        const brandID = parseInt($(this).attr('data-brand-id'), 10);
+        const brandName = $(this).attr('data-brand-name') || '';
+        if (brandID) {
+            viewBrandGasLogs(brandID, brandName);
+        }
+    });
+
     // Close modals when clicking outside
     $(document).on('click', '#viewGasDetailModal', function(e) {
         if (e.target.id === 'viewGasDetailModal') {
@@ -400,6 +605,16 @@ $(document).ready(function() {
         if (e.target.id === 'gasLogsModal') {
             closeGasLogsModal();
         }
+    });
+
+    $(document).on('click', '#brandGasLogsModal', function(e) {
+        if (e.target.id === 'brandGasLogsModal') {
+            closeBrandGasLogsModal();
+        }
+    });
+
+    $(document).on('click', '#brandGasLogsModal .form-container', function(e) {
+        e.stopPropagation();
     });
 });
 </script>
@@ -430,5 +645,15 @@ $(document).ready(function() {
     .btn-sm:hover {
         transform: translateY(-2px);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .brand-gas-logs-modal {
+        background: white !important;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+
+    .brand-gas-logs-modal::before {
+        display: none !important;
     }
 </style>
